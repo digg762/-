@@ -7,6 +7,7 @@ const path = require('path');
 const PORT = process.env.PORT || 3000;
 const KEY = (process.env.RAWG_KEY || '').trim();
 const BASE = process.env.RAWG_BASE || 'https://api.rawg.io';
+const CLIENT = (process.env.BRANDFETCH_CLIENT_ID || '').trim();
 const PUBLIC = path.join(__dirname, 'public');
 const DAY = 24 * 3600 * 1000;
 
@@ -16,6 +17,14 @@ for (const line of fs.readFileSync(path.join(__dirname, 'games.txt'), 'utf8').sp
   if (!line.trim() || line.startsWith('#')) continue;
   const i = line.indexOf('|');
   games.set(line.slice(0, i), line.slice(i + 1).trim());
+}
+
+// id -> домен сайта приложения (для логотипов Brandfetch)
+const apps = new Map();
+for (const line of fs.readFileSync(path.join(__dirname, 'apps.txt'), 'utf8').split('\n')) {
+  if (!line.trim() || line.startsWith('#')) continue;
+  const [id, , domain] = line.split('|');
+  if (domain && domain.trim()) apps.set(id, domain.trim());
 }
 
 const norm = s => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -73,10 +82,20 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
 
 const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   let url;
   try { url = new URL(req.url, 'http://x'); } catch { res.writeHead(400).end('bad request'); return; }
 
   if (url.pathname === '/healthz') { res.writeHead(200).end('ok'); return; }
+
+  if (url.pathname === '/api/icon') {
+    const id = url.searchParams.get('id') || '';
+    if (!/^\d{1,4}$/.test(id) || !apps.has(id)) { res.writeHead(404).end('not found'); return; }
+    if (!CLIENT) { res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' }).end('BRANDFETCH_CLIENT_ID не задан на сервере'); return; }
+    const loc = 'https://cdn.brandfetch.io/' + encodeURIComponent(apps.get(id)) + '/fallback/404?c=' + encodeURIComponent(CLIENT);
+    res.writeHead(302, { Location: loc, 'Cache-Control': 'public, max-age=86400' }).end();
+    return;
+  }
 
   if (url.pathname === '/api/cover') {
     const id = url.searchParams.get('id') || '';
@@ -106,4 +125,4 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.listen(PORT, () => console.log('Lootly запущен на порту ' + PORT + (KEY ? '' : ' (RAWG_KEY не задан, обложек не будет)')));
+server.listen(PORT, () => console.log('Lootly запущен на порту ' + PORT + (KEY ? '' : ' (RAWG_KEY не задан: обложек игр не будет)') + (CLIENT ? '' : ' (BRANDFETCH_CLIENT_ID не задан: логотипов приложений не будет)')));

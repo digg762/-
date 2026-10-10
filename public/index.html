@@ -819,11 +819,12 @@ function mono(name) {
 }
 let COVERS = {};
 const COVER_API = '/api/cover?id=';
-const coverOf = g => COVERS[g.id] || (COVER_API && g.arch !== 'app' ? COVER_API + g.id : '');
+const ICON_API = '/api/icon?id=';
+const coverOf = g => COVERS[g.id] || (g.arch === 'app' ? (ICON_API ? ICON_API + g.id : '') : (COVER_API ? COVER_API + g.id : ''));
 function coverByName(n) { const g = GAMES.find(x => x.name === n && x.arch !== 'app'); return g ? coverOf(g) : ''; }
-const coverImg = c => c ? `<img src="${esc(c)}" alt="" loading="lazy" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1">` : '';
+const coverImg = (c, app) => c ? `<img src="${esc(c)}" alt="" loading="lazy" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;${app ? 'object-fit:contain;background:#fff;padding:14%;box-sizing:border-box' : 'object-fit:cover'}">` : '';
 function tile(g, cls) {
-  return `<span class="tile ${cls || ''}" style="background:${artBg(g.name)}">${esc(mono(g.name))}${coverImg(coverOf(g))}${g.isNew ? '<span class="new-tag">Новое</span>' : ''}</span>`;
+  return `<span class="tile ${cls || ''}" style="background:${artBg(g.name)}">${esc(mono(g.name))}${coverImg(coverOf(g), g.arch === 'app')}${g.isNew ? '<span class="new-tag">Новое</span>' : ''}</span>`;
 }
 
 /* ===== Категории предложений и фильтры ===== */
@@ -1150,7 +1151,7 @@ function viewGame() {
   const total = cats.reduce((s, c) => s + offersFor(g, c).length, 0), fav = S.favs.includes(g.id);
   view().innerHTML = `
     <div class="gh">
-      <div class="gh-art" style="background:${coverOf(g) ? `url('${esc(coverOf(g))}') center/cover, ` : ''}${artBg(g.name)}"></div><div class="gh-veil"></div>
+      <div class="gh-art" style="background:${coverOf(g) && g.arch !== 'app' ? `url('${esc(coverOf(g))}') center/cover, ` : ''}${artBg(g.name)}"></div><div class="gh-veil"></div>
       <div style="padding-inline:20px">
         <button class="back" data-go="market" data-kind-back="${g.arch === 'app' ? 'app' : 'game'}" style="color:#fff;opacity:.85">${ICON.back.replace('<svg', '<svg width="18" height="18"')} ${g.arch === 'app' ? 'Приложения' : 'Маркетплейс'}</button>
         <div class="gh-in">

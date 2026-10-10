@@ -1,0 +1,144 @@
+# id|название|домен (пусто, если у приложения нет своего сайта)
+444|Claude|claude.ai
+445|ChatGPT|chatgpt.com
+446|Grok|grok.com
+447|Cursor|cursor.com
+448|Gemini|gemini.google.com
+449|Suno|suno.com
+450|DeepSeek|deepseek.com
+451|Perplexity|perplexity.ai
+452|Higgsfield|higgsfield.ai
+453|Нейросети|
+454|HeyGen|heygen.com
+455|Kling|klingai.com
+456|Runway|runwayml.com
+457|Kimi|kimi.com
+458|n8n|n8n.io
+459|PolyBuzz|polybuzz.ai
+460|Emochi|emochi.com
+461|Chai|chai-research.com
+462|Character.ai|character.ai
+463|Meshy|meshy.ai
+464|ElevenLabs|elevenlabs.io
+465|Tripo|tripo3d.ai
+466|z.ai|z.ai
+467|Midjourney|midjourney.com
+468|OpenRouter|openrouter.ai
+469|Replit|replit.com
+470|Copilot|copilot.microsoft.com
+471|Magnific|magnific.ai
+472|Opencode|opencode.ai
+473|Pika|pika.art
+474|Recraft|recraft.ai
+475|PixVerse|pixverse.ai
+476|Bolt.new|bolt.new
+477|Gamma|gamma.app
+478|Leonardo AI|leonardo.ai
+479|Lovable|lovable.dev
+480|Trae|trae.ai
+481|Genspark|genspark.ai
+482|Pollo|pollo.ai
+483|Manus|manus.im
+484|Cluely|cluely.com
+485|Krea|krea.ai
+486|Chutes AI|chutes.ai
+487|Hailuo|hailuoai.video
+488|Luma|lumalabs.ai
+489|Windsurf|windsurf.com
+490|Quillbot|quillbot.com
+491|Ideogram|ideogram.ai
+492|Hugging Face|huggingface.co
+493|Abacus|abacus.ai
+494|Vizard|vizard.ai
+495|Qwen|qwen.ai
+496|Civitai|civitai.com
+497|Mistral|mistral.ai
+498|Voicemod|voicemod.net
+499|Photoroom|photoroom.com
+500|YouTube|youtube.com
+501|Spotify|spotify.com
+502|Netflix|netflix.com
+503|Twitch|twitch.tv
+504|SoundCloud|soundcloud.com
+505|Prime Video|primevideo.com
+506|Deezer|deezer.com
+507|Tidal|tidal.com
+508|Qobuz|qobuz.com
+509|Kick|kick.com
+510|Trovo|trovo.live
+511|Crunchyroll|crunchyroll.com
+512|TikTok|tiktok.com
+513|Telegram|telegram.org
+514|Discord|discord.com
+515|Snapchat|snapchat.com
+516|Likee|likee.video
+517|ВКонтакте|vk.com
+518|Tango Live|tango.me
+519|Bigo Live|bigo.tv
+520|ZEPETO|zepeto.me
+521|Slack|slack.com
+522|Element|element.io
+523|Дзен|dzen.ru
+524|Yappy|yappy.media
+525|PlayStation|playstation.com
+526|Steam|steampowered.com
+527|Nintendo|nintendo.com
+528|Xbox|xbox.com
+529|Battle.net|battle.net
+530|Faceit|faceit.com
+531|EA Play|ea.com
+532|Rockstar Games|rockstargames.com
+533|Microsoft Store|microsoft.com
+534|Razer Gold|razer.com
+535|ExitLag|exitlag.com
+536|Ubisoft|ubisoft.com
+537|GOG|gog.com
+538|Epic Games|epicgames.com
+539|GeForce NOW|nvidia.com
+540|GearUP|gearupbooster.com
+541|LagoFast|lagofast.com
+542|NoPing|noping.com
+543|Pax Historia|paxhistoria.co
+544|GeoGuessr|geoguessr.com
+545|TeamSpeak|teamspeak.com
+546|Crosshair X|crosshairx.com
+547|YoloMouse|yolomouse.com
+548|Wallpaper Engine|wallpaperengine.io
+549|Adobe|adobe.com
+550|Windows|microsoft.com
+551|Figma|figma.com
+552|Autodesk|autodesk.com
+553|FL Studio|image-line.com
+554|iMazing|imazing.com
+555|Canva|canva.com
+556|Picsart|picsart.com
+557|JetBrains|jetbrains.com
+558|Splice|splice.com
+559|Clip Studio Paint|clipstudio.net
+560|Ableton|ableton.com
+561|Soundpad|leppsoft.com
+562|Miro|miro.com
+563|Envato Elements|envato.com
+564|Bandicam|bandicam.com
+565|CapCut|capcut.com
+566|Notion|notion.com
+567|Dropbox|dropbox.com
+568|Ahrefs|ahrefs.com
+569|Zoom|zoom.us
+570|TradingView|tradingview.com
+571|Аудиоредактор|
+572|ArtList|artlist.io
+573|Хостинг|
+574|eSIM|
+575|Дизайн|
+576|PICO|pico-interactive.com
+577|Apple|apple.com
+578|Google Play|play.google.com
+579|Duolingo|duolingo.com
+580|Coursera|coursera.org
+581|Quizlet|quizlet.com
+582|Busuu|busuu.com
+583|Mimo|mimo.org
+584|Yazio|yazio.com
+585|PixelLab|pixellab.ai
+586|Другие приложения|
