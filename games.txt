@@ -1,0 +1,445 @@
+# id|название (только игры; приложения RAWG не покрывает)
+0|Genshin Impact
+1|Roblox
+2|Helldivers 2
+3|Другие игры
+4|Fortnite
+5|Dota 2
+6|Valorant
+7|Counter-Strike 2
+8|EA Sports FC 27
+9|Arena Breakout
+10|Hearthstone
+11|Minecraft
+12|STALCRAFT
+13|Танки ПК
+14|World of Warcraft
+15|PUBG
+16|GTA 5 Online
+17|GTA 6
+18|Rust
+19|Diablo 4
+20|WARDOGS
+21|Delta Force
+22|Dead by Daylight
+23|eFootball
+24|Overwatch 2
+25|Warframe
+26|Warface
+27|Forza Horizon
+28|Albion Online
+29|War Thunder
+30|League of Legends
+31|Zenless Zone Zero
+32|ARC Raiders
+33|Escape from Tarkov
+34|Cyberpunk 2077
+35|The Sims
+36|Battlefield 6
+37|EA SPORTS FC 26
+38|Русская рыбалка
+39|Risk of Rain 2
+40|Aion 2
+41|Honkai: Star Rail
+42|Apex Legends
+43|Resident Evil
+44|Path of Exile 2
+45|Dragon's Dogma 2
+46|Majestic RP
+47|Clive Barker's Hellraiser: Revival
+48|Euro Truck Simulator 2
+49|Red Dead Redemption 2
+50|Far Cry
+51|BeamNG.drive
+52|Radmir RP
+53|Borderlands 4
+54|Call of Duty
+55|Ведьмак 3
+56|Call of Duty: Modern Warfare
+57|GTA 5 RP
+58|War Robots
+59|Minecraft Dungeons II
+60|Bodycam
+61|Team Fortress 2
+62|Amazing Online
+63|Total War
+64|F1 25
+65|Шахматы
+66|Resident Evil 4
+67|Wuthering Waves
+68|Final Fantasy XIV
+69|Warhammer 40,000
+70|Rocket League
+71|Onimusha: Way of the Sword
+72|DayZ
+73|Ready or Not
+74|Active Matter
+75|God of War
+76|Marvel Rivals
+77|It Takes Two
+78|GTA
+79|The Last of Us Part II
+80|UFC 6
+81|Assassin's Creed
+82|Kingdom Come: Deliverance
+83|Mech Arena
+84|Project Zomboid
+85|Arizona RP
+86|CarX Drift Racing
+87|The Last of Us
+88|Goose Goose Duck
+89|Farming Simulator
+90|Dying Light: The Beast
+91|Lineage 2M
+92|Jujutsu Kaisen
+93|CrossFire
+94|SnowRunner
+95|NBA 2K27
+96|Mount and Blade II: Bannerlord
+97|Arma: Reforger
+98|Where Winds Meet
+99|Metro
+100|Deadlock
+101|The Elder Scrolls Online
+102|Avatar: Frontiers of Pandora
+103|Fallout
+104|Spider-Man
+105|8 Ball Pool
+106|NTE: Neverness to Everness
+107|PK XD
+108|NextRP
+109|MTA Province
+110|Limbus Company
+111|Diablo 3
+112|NHL 27
+113|Ace Combat
+114|Schedule I
+115|The Seven Deadly Sins
+116|Kuboom
+117|Minecraft Dungeons
+118|The Crew
+119|Among Us
+120|Hogwarts Legacy
+121|Outlast
+122|Monster Hunter
+123|7 Days to Die
+124|Sea of Thieves
+125|Gears of War
+126|NieR: Automata
+127|Assassin's Creed Black Flag Resynced
+128|Elden Ring
+129|Sniper Elite
+130|Geometry Dash
+131|Sid Meier's Civilization
+132|TEKKEN 8
+133|Arknights: Endfield
+134|Hearts of Iron IV
+135|Dying Light
+136|Battlefield
+137|Garry's Mod
+138|UFC
+139|SimCity
+140|Doom: The Dark Ages
+141|Elite Dangerous
+142|Split Fiction
+143|Phantom Blade Zero
+144|Magic: The Gathering Arena
+145|Need for Speed
+146|The Blood of Dawnwalker
+147|World of Warcraft Classic
+148|Ghost of Tsushima
+149|NHL
+150|Crimson Desert
+151|Planet Zoo 2
+152|ArcheAge
+153|Tom Clancy's Ghost Recon
+154|Mortal Kombat
+155|Squad
+156|Uncharted
+157|Watch Dogs 2
+158|Dead Space
+159|Mafia
+160|Days Gone
+161|Terraria
+162|Tom Clancy's The Division
+163|Once Human
+164|Microsoft Flight Simulator 2024
+165|Devil May Cry
+166|Jurassic World
+167|Titan Quest 2
+168|Jurassic World Evolution 3
+169|Sons Of The Forest
+170|SILENT HILL
+171|Diablo 2: Resurrected
+172|Pony Town
+173|Valheim
+174|Transport Fever 3
+175|Gothic
+176|EA SPORTS FC 25
+177|Sonic
+178|Horizon
+179|No Man's Sky
+180|Atomic Heart
+181|World of Warships
+182|Hytale
+183|Mortal Kombat 11
+184|Frostborn
+185|Assetto Corsa
+186|PROTOTYPE
+187|Marvel's Wolverine
+188|Hunt: Showdown
+189|Assassin's Creed Shadows
+190|Sky: Дети Света
+191|Легенды Драконов
+192|Death Stranding
+193|Mass Effect
+194|Tomb Raider
+195|Permafrost
+196|Heroes of Might and Magic: Olden Era
+197|Life is Strange
+198|Baldur's Gate 3
+199|How to Fish
+200|Crossout
+201|Torchlight: Infinite
+202|City Car Driving
+203|Marvel's Spider-Man
+204|Broken Arrow
+205|Sekiro: Shadows Die Twice
+206|Stumble Guys
+207|Dishonored
+208|NBA
+209|PEAK
+210|Wolfenstein
+211|Star Citizen
+212|Teardown
+213|Stellar Blade
+214|Dragon Age: The Veilguard
+215|LEGO
+216|StarCraft 2
+217|Doom
+218|Aniimo
+219|007 First Light
+220|The Forest
+221|Detroit: Become Human
+222|Lies of P
+223|Plants vs Zombies: Garden Warfare 2
+224|Naruto
+225|Black Myth: Wukong
+226|Crusader Kings
+227|REMATCH
+228|Gamble With Friends
+229|Dead Island
+230|Borderlands
+231|Middle-earth: Shadow of Mordor
+232|Persona 3 Reload
+233|Counter-Strike 1.6
+234|AFK Journey
+235|Satisfactory
+236|Slay the Spire 2
+237|Stellaris
+238|Destiny 2
+239|Max Payne
+240|Mortal Kombat Klassic
+241|For Honor
+242|Azur Lane
+243|A Way Out
+244|FIFA
+245|Hell Let Loose
+246|Heroes of the Storm
+247|Umamusume
+248|Life MakeOver
+249|Red Dead Redemption
+250|Cuphead
+251|Subnautica
+252|House Flipper 2
+253|Unravel
+254|STAR WARS Jedi: Survivor
+255|Stray
+256|Spore
+257|Phasmophobia
+258|RV There Yet?
+259|Plants vs. Zombies
+260|Factorio
+261|Age of Empires
+262|Малиновка РП
+263|Lords of the Fallen
+264|Hello Neighbor
+265|V Rising
+266|Quarantine Zone
+267|Barotrauma
+268|BOMBANANA
+269|Overcooked! 2
+270|Deep Rock Galactic
+271|Россия Онлайн
+272|VR Игры
+273|Cities: Skylines
+274|Half-Life
+275|Mad Max
+276|Dark Souls
+277|Batman: Arkham Knight
+278|Arma 3
+279|The Finals
+280|Hitman
+281|MudRunner
+282|Back 4 Blood
+283|Sid Meier's Civilization VII
+284|Green Hell
+285|City Car Driving 2
+286|DEATHLOOP
+287|Star Wars: Galactic Racer
+288|Silent Hill 2
+289|Path of Exile
+290|World War Z
+291|DAVE THE DIVER
+292|Halloween: The Game
+293|R.E.P.O.
+294|Serious Sam
+295|theHunter: Call of the Wild
+296|ReStory: Chill
+297|Reverse 1999
+298|Родина РП
+299|Car Mechanic Simulator
+300|Ghost of Yōtei
+301|Lost Light
+302|EA SPORTS FC 24
+303|Football Manager 26
+304|REANIMAL
+305|Bully
+306|Portal
+307|Stardew Valley
+308|MOUSE: P.I. For Hire
+309|SILENT HILL f
+310|American Truck Simulator
+311|Anno 117: Pax Romana
+312|Dispatch
+313|MIMESIS
+314|Wanderburg
+315|Warspear Online
+316|Crysis
+317|Demon Slayer
+318|People Playground
+319|Prison Architect
+320|SAMP
+321|Mafia: The Old Country
+322|Scrap Mechanic
+323|Payday
+324|Control: Resonant
+325|Buckshot Roulette
+326|Dead Cells
+327|The Long Drive
+328|Hotline Miami
+329|Car For Sale Simulator
+330|Left 4 Dead 2
+331|No, I'm not a Human
+332|Remnant II
+333|Graveyard Keeper
+334|Don't Starve
+335|Palworld
+336|Poppy Playtime
+337|Pummel Party
+338|RimWorld
+339|YAPYAP
+340|Hollow Knight: Silksong
+341|EA SPORTS Madden NFL 26
+342|WWE 2K26
+343|Two Point Museum
+344|Football Manager
+345|The Binding of Isaac
+346|Зомби ферма
+347|Clair Obscur: Expedition 33
+348|Star Wars Zero Company
+349|Planet Zoo
+350|Bloons TD
+351|Devour
+352|Cult of the Lamb
+353|Directive 8020
+354|Little Nightmares III
+355|Call of Dragons
+356|My Summer Car
+357|WheelMates
+358|Grounded 2
+359|Pragmata
+360|inZOI
+361|Icarus
+362|Suspects: Mystery Mansion
+363|Танки Браузерные
+364|Postal
+365|Bleach Rebirth of Souls
+366|Life is Strange: Reunion
+367|Warcraft 3: Reforged
+368|Avowed
+369|VHOLUME
+370|Five Nights at Freddy's
+371|Anno 1800
+372|Human Fall Flat
+373|Persona 5 Royal
+374|Echoes of Aincrad
+375|Atomfall
+376|Tony Hawk's Pro Skater
+377|Killing Floor 2
+378|ULTRAKILL
+379|Indiana Jones and the Great Circle
+380|Mewgenics
+381|Low-Budget Repairs
+382|The Isle
+383|Deadzone: Rogue
+384|Elden Ring: Nightreign
+385|Monster Hunter Wilds
+386|XCOM 2
+387|Last Epoch
+388|Magic Rampage
+389|Mortal Shell II
+390|POLYWAR
+391|Total War: Warhammer III
+392|OSU!
+393|Metal Gear Solid
+394|skate.
+395|Tormented Souls II
+396|Mortal Kombat Legacy Kollection
+397|Kingdom Rush Genesis
+398|Tears of Metal
+399|Happy Wheels
+400|Escape from Duckov
+401|Dune: Awakening
+402|Raft
+403|Prey
+404|FINAL FANTASY
+405|Mecha Chameleon
+406|Shift At Midnight
+407|Neon Abyss 2
+408|Age of Mythology
+409|BioShock
+410|Just Cause 4
+411|Conan Exiles
+412|MiSide
+413|ARK: Survival Ascended
+414|RoadCraft
+415|Fall Guys
+416|Halo
+417|NINJA GAIDEN 4
+418|Company of Heroes 3
+419|Darkest Dungeon
+420|Chivalry 2
+421|The Long Dark
+422|Raven 2
+423|The Elder Scrolls IV: Oblivion
+424|Wuchang: Fallen Feathers
+425|Medieval Dynasty
+426|Grounded
+427|Blasphemous
+428|Tom Clancy's Rainbow Six Siege
+429|UNO!
+430|DREDGE
+431|The Callisto Protocol
+432|Starfield
+433|Liars Bar
+434|AI LIMIT
+435|Undertale
+436|Yakuza Kiwami
+437|Star Wars Outlaws
+438|Slime Rancher 2
+439|Construction Simulator
+440|Beast of Reincarnation
+441|Machine Party
+442|Project P.I.T.T
+443|Silver Pines

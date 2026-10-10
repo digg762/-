@@ -1,0 +1,1430 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Lootly</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap">
+<style>
+/* Layout concept: dark storefront shell, sticky top bar, tile grid of games, PS-Store style game band with filters + offer list below. */
+:root{
+  --bg:#090911; --surface:#12121e; --surface-2:#1a1a2a; --surface-3:#242439; --line:#2a2a40;
+  --fg:#eef0fc; --muted:#9b9db8;
+  --blue:#4da3ff; --violet:#9a5cff;
+  --grad:linear-gradient(100deg,var(--blue),var(--violet));
+  --on-grad:#07070f;
+  --good:#3ddc97; --warn:#ffb547; --bad:#ff5d73;
+  --shadow:0 14px 40px rgba(0,0,0,.45);
+  --f-display:'Unbounded','Onest',system-ui,sans-serif;
+  --f-body:'Onest',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f3f4fb; --surface:#ffffff; --surface-2:#eef0fa; --surface-3:#e2e5f5; --line:#d9dcee;
+    --fg:#14152a; --muted:#5b5e80;
+    --blue:#2a74d8; --violet:#7438e8; --on-grad:#ffffff;
+    --good:#0f9a63; --warn:#b36c00; --bad:#d6304a;
+    --shadow:0 14px 36px rgba(40,44,90,.14);
+    color-scheme:light;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f3f4fb; --surface:#ffffff; --surface-2:#eef0fa; --surface-3:#e2e5f5; --line:#d9dcee;
+  --fg:#14152a; --muted:#5b5e80;
+  --blue:#2a74d8; --violet:#7438e8; --on-grad:#ffffff;
+  --good:#0f9a63; --warn:#b36c00; --bad:#d6304a;
+  --shadow:0 14px 36px rgba(40,44,90,.14);
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --bg:#090911; --surface:#12121e; --surface-2:#1a1a2a; --surface-3:#242439; --line:#2a2a40;
+  --fg:#eef0fc; --muted:#9b9db8;
+  --blue:#4da3ff; --violet:#9a5cff; --on-grad:#07070f;
+  --good:#3ddc97; --warn:#ffb547; --bad:#ff5d73;
+  --shadow:0 14px 40px rgba(0,0,0,.45);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{height:auto}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:100vh}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:8px}
+h1,h2,h3{margin:0;text-wrap:balance}
+.wrap{max-width:1360px;margin-inline:auto;padding-inline:16px}
+.muted{color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+.grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* ---------- header ---------- */
+.hdr{position:sticky;top:env(safe-area-inset-top,0px);z-index:30;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.hdr-in{display:flex;align-items:center;gap:14px;padding-block:10px;flex-wrap:wrap}
+.logo{font-family:var(--f-body);font-weight:700;font-size:28px;letter-spacing:-.03em;line-height:1;border:0;background:none;padding:2px 0;cursor:pointer}
+.nav-tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:3px}
+.nav-tabs button{border:0;background:none;padding:7px 14px;border-radius:9px;color:var(--muted);font-weight:600;white-space:nowrap}
+.nav-tabs button[aria-current="page"]{background:var(--surface-3);color:var(--fg)}
+.search{position:relative;flex:1 1 260px;min-width:0;max-width:560px}
+.search input{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px 10px 40px;outline:none}
+.search input:focus{border-color:var(--blue)}
+.search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:17px;height:17px;color:var(--muted);pointer-events:none}
+.pop{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:6px;max-height:min(70vh,420px);overflow:auto;z-index:40}
+.pop button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;padding:7px 8px;border-radius:10px}
+.pop button:hover,.pop button:focus-visible{background:var(--surface-2)}
+.pop .tile-sm{width:34px;height:34px;border-radius:10px;font-size:12px}
+.hdr-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-weight:600;font-size:14px;white-space:nowrap}
+.icon-btn{position:relative;display:inline-grid;place-items:center;width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--surface)}
+.icon-btn svg{width:19px;height:19px}
+.badge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding-inline:5px;border-radius:9px;background:var(--grad);color:var(--on-grad);font-size:11px;font-weight:700;display:grid;place-items:center}
+.avatar{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:50%;font-weight:700;color:#fff;border:0;flex:none}
+.avatar.lg{width:84px;height:84px;font-size:32px;font-family:var(--f-display)}
+
+/* ---------- buttons, chips ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);padding:9px 16px;border-radius:12px;font-weight:600;white-space:nowrap}
+.btn:hover{background:var(--surface-3)}
+.btn.primary{background:var(--grad);color:var(--on-grad);border-color:transparent}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.sm{padding:6px 12px;font-size:14px;border-radius:10px}
+.btn.danger{color:var(--bad)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;font-weight:500;font-size:14px;white-space:nowrap}
+.chip:hover{background:var(--surface-2)}
+.chip[aria-pressed="true"]{background:var(--grad);color:var(--on-grad);border-color:transparent;font-weight:600}
+.scroll-x{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.scroll-x>*{flex:none}
+
+/* ---------- generated art tiles ---------- */
+.tile{position:relative;display:grid;place-items:center;aspect-ratio:1;border-radius:24%;color:#fff;font-family:var(--f-display);font-weight:700;overflow:hidden;text-shadow:0 2px 10px rgba(0,0,0,.35);isolation:isolate}
+.tile::after{content:"";position:absolute;inset:0;background:radial-gradient(120% 80% at 20% 0%,rgba(255,255,255,.28),transparent 55%);z-index:-1}
+.tile-sm{font-size:12px}
+.new-tag{z-index:2;position:absolute;top:6px;right:6px;background:var(--good);color:#04130c;font-family:var(--f-body);font-size:10px;font-weight:700;border-radius:8px;padding:1px 6px;text-shadow:none}
+
+/* ---------- home ---------- */
+.page{padding-block:22px 24px}
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-block:26px 14px}
+.sec-head h2{font-family:var(--f-display);font-weight:500;font-size:20px;letter-spacing:-.01em}
+.game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:20px 10px}
+.game{display:flex;flex-direction:column;align-items:center;gap:8px;border:0;background:none;padding:6px 2px;border-radius:16px;min-width:0}
+.game:hover .tile{transform:translateY(-3px);box-shadow:0 10px 24px rgba(0,0,0,.35)}
+.game .tile{width:100%;max-width:92px;transition:transform .15s,box-shadow .15s;font-size:24px}
+.game .nm{font-size:13px;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg)}
+.hero-line{display:flex;gap:18px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.hero-line h1{font-family:var(--f-display);font-weight:700;font-size:clamp(24px,4vw,36px);letter-spacing:-.02em}
+.demo-note{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:13px;color:var(--muted)}
+.empty{border:1px dashed var(--line);border-radius:16px;padding:32px 20px;text-align:center;color:var(--muted)}
+.rail{display:grid;grid-auto-flow:column;grid-auto-columns:104px;gap:12px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+
+/* ---------- bottom nav (phone) ---------- */
+.bnav{display:none;position:fixed;left:0;right:0;bottom:0;z-index:35;background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));justify-content:space-around}
+.bnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;color:var(--muted);font-size:11px;font-weight:600;padding:4px 0}
+.bnav button[aria-current="page"]{color:var(--fg)}
+.bnav svg{width:21px;height:21px}
+@media (max-width:760px){
+  .bnav{display:flex}
+  .nav-tabs{display:none}
+  .hdr-actions .hide-m{display:none}
+  .logo{font-size:24px}
+  .search{order:5;flex-basis:100%;max-width:none}
+}
+
+/* ---------- game page ---------- */
+.gh{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:22px;isolation:isolate;background:#10101c}
+.gh-art{position:absolute;inset:-40px;z-index:-1;filter:blur(36px) saturate(1.3);opacity:.75}
+.gh-veil{position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(8,8,16,.2),rgba(8,8,16,.72))}
+.gh-in{display:flex;gap:22px;align-items:flex-end;padding-block:26px 20px;flex-wrap:wrap}
+.gh .tile{width:116px;font-size:38px;box-shadow:0 16px 40px rgba(0,0,0,.45);flex:none}
+.gh-txt{flex:1 1 260px;min-width:0}
+.gh-title{font-family:var(--f-display);font-weight:700;font-size:clamp(22px,4.4vw,38px);letter-spacing:-.02em;line-height:1.15;overflow-wrap:anywhere;text-shadow:0 2px 14px rgba(0,0,0,.35);color:#fff}
+.gh-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.gh-meta .pill{background:rgba(10,10,20,.55);color:#fff;border-color:rgba(255,255,255,.18);backdrop-filter:blur(6px)}
+.gh-act{display:flex;gap:8px;align-items:center}
+.back{border:0;background:none;color:var(--muted);padding:0;font-weight:600;margin-block:14px 0;display:inline-flex;gap:6px;align-items:center}
+.back:hover{color:var(--fg)}
+.cat-tabs{display:flex;gap:6px;overflow-x:auto;padding-block:12px;scrollbar-width:thin;border-bottom:1px solid var(--line)}
+.cat-tabs button{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:9px 16px;font-weight:600;color:var(--muted)}
+.cat-tabs button[aria-selected="true"]{background:var(--surface-3);color:var(--fg);border-color:var(--blue)}
+.cat-tabs .cnt{margin-left:6px;font-size:12px;opacity:.75}
+.layout{display:grid;grid-template-columns:268px minmax(0,1fr);gap:22px;padding-block:18px}
+.fpanel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;align-self:start;position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px);display:flex;flex-direction:column;gap:16px}
+.fpanel h3{font-size:14px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.fg{display:flex;flex-direction:column;gap:8px}
+.fg>label,.fg>.lbl{font-weight:600;font-size:14px}
+.fg select,.fg input[type="number"],.fg input[type="text"]{width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.check{display:flex;gap:9px;align-items:center;font-size:14px;cursor:pointer}
+.check input{width:17px;height:17px;accent-color:var(--violet)}
+.f-toggle{display:none}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toolbar .grow{flex:1 1 200px;min-width:0}
+.toolbar input,.toolbar select{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:9px 12px}
+.offers{display:flex;flex-direction:column;gap:10px}
+.offer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;align-items:center}
+.offer:hover{border-color:color-mix(in srgb,var(--violet) 60%,var(--line))}
+.offer h3{font-size:16px;font-weight:600;overflow-wrap:anywhere}
+.offer .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.tag{font-size:12px;border-radius:8px;padding:2px 8px;background:var(--surface-3);color:var(--muted);font-weight:500}
+.tag.good{color:var(--good)}
+.seller{display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.dot.on{background:var(--good)}
+.price-col{display:flex;flex-direction:column;align-items:flex-end;gap:8px;grid-row:1/3;grid-column:2}
+.price{font-weight:700;font-size:20px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.old{text-decoration:line-through;color:var(--muted);font-size:13px;font-weight:500;margin-right:6px}
+@media (max-width:900px){
+  .layout{grid-template-columns:minmax(0,1fr)}
+  .fpanel{position:static}
+  .fpanel[data-open="false"]{display:none}
+  .f-toggle{display:inline-flex}
+}
+@media (max-width:520px){
+  .offer{grid-template-columns:minmax(0,1fr)}
+  .price-col{grid-row:auto;grid-column:auto;flex-direction:row;align-items:center;justify-content:space-between;margin-top:6px}
+  .gh .tile{width:84px;font-size:28px}
+}
+
+/* ---------- shop ---------- */
+.shop-hero{display:grid;grid-template-columns:2fr 1fr 1fr;gap:14px}
+.feat{position:relative;border-radius:22px;overflow:hidden;min-height:230px;padding:22px;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;color:#fff;border:0;text-align:left;isolation:isolate}
+.feat:first-child{min-height:300px}
+.feat .mono{position:absolute;right:-6px;top:-18px;font-family:var(--f-display);font-weight:700;font-size:140px;opacity:.18;z-index:-1;line-height:1}
+.feat::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 30%,rgba(0,0,0,.6));z-index:-1}
+.feat h3{font-family:var(--f-display);font-size:clamp(18px,2.4vw,26px);font-weight:700;line-height:1.15;overflow-wrap:anywhere}
+.feat .pill{background:rgba(10,10,20,.55);color:#fff;border-color:rgba(255,255,255,.2);align-self:flex-start}
+.poster-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:18px 14px}
+.poster{display:flex;flex-direction:column;gap:8px;border:0;background:none;padding:0;text-align:left;min-width:0}
+.poster .art{position:relative;aspect-ratio:3/4;border-radius:18px;display:grid;place-items:center;color:#fff;font-family:var(--f-display);font-weight:700;font-size:44px;overflow:hidden;isolation:isolate;transition:transform .15s,box-shadow .15s;text-shadow:0 2px 12px rgba(0,0,0,.4)}
+.poster .art::after{content:"";position:absolute;inset:0;background:radial-gradient(100% 60% at 30% 0%,rgba(255,255,255,.25),transparent 60%);z-index:-1}
+.poster:hover .art{transform:translateY(-3px);box-shadow:var(--shadow)}
+.poster .disc{z-index:2;position:absolute;left:8px;top:8px;background:var(--grad);color:var(--on-grad);font-family:var(--f-body);font-size:12px;font-weight:700;border-radius:8px;padding:2px 8px;text-shadow:none}
+.poster .nm{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.poster .sub{font-size:12px;color:var(--muted)}
+.poster .pr{font-weight:700;font-variant-numeric:tabular-nums}
+.shop-layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:22px}
+@media (max-width:900px){
+  .shop-hero{grid-template-columns:minmax(0,1fr)}
+  .feat,.feat:first-child{min-height:190px}
+  .shop-layout{grid-template-columns:minmax(0,1fr)}
+}
+.drawer-bg{position:fixed;inset:0;background:rgba(5,5,12,.6);z-index:60;display:flex;justify-content:flex-end}
+.drawer{width:min(420px,100%);background:var(--surface);border-left:1px solid var(--line);height:100%;display:flex;flex-direction:column;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));gap:12px;overflow:auto}
+.cart-row{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:10px;align-items:center;padding-block:8px;border-bottom:1px solid var(--line)}
+.cart-row .tile{width:48px;font-size:15px}
+
+/* ---------- profile / settings ---------- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px}
+.profile-top{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.profile-top h1{font-family:var(--f-display);font-size:clamp(20px,3.4vw,28px);font-weight:700;overflow-wrap:anywhere}
+.two{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;margin-top:16px}
+@media (max-width:900px){.two{grid-template-columns:minmax(0,1fr)}}
+.row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-block:12px;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .t{font-weight:600}
+.row .d{font-size:13px;color:var(--muted)}
+.toggle{position:relative;width:46px;height:26px;flex:none;border-radius:999px;border:1px solid var(--line);background:var(--surface-3);padding:0}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--muted);transition:transform .15s,background .15s}
+.toggle[aria-checked="true"]{background:var(--grad);border-color:transparent}
+.toggle[aria-checked="true"]::after{transform:translateX(20px);background:var(--on-grad)}
+.form{display:flex;flex-direction:column;gap:12px}
+.form label{font-weight:600;font-size:14px;display:flex;flex-direction:column;gap:6px}
+.form input,.form textarea,.form select,.sel{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-weight:400}
+.form textarea{min-height:84px;resize:vertical}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:30px;height:30px;border-radius:50%;border:2px solid transparent;padding:0}
+.sw[aria-pressed="true"]{border-color:var(--fg)}
+.sub-tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px}
+.hist{display:flex;flex-direction:column}
+.hist .row .tile{width:42px;font-size:14px}
+.hist .l{display:flex;gap:12px;align-items:center;min-width:0}
+.hist .l>div{min-width:0}
+.status{font-size:12px;border-radius:8px;padding:2px 8px;background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good);font-weight:600}
+
+/* ---------- modal, toast ---------- */
+.modal-bg{position:fixed;inset:0;background:rgba(5,5,12,.65);z-index:70;display:grid;place-items:center;padding:16px}
+.modal{width:min(480px,100%);max-height:calc(100% - 16px);overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:20px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:14px}
+.seg{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:3px;width:fit-content;max-width:100%}
+.seg button{border:0;background:none;padding:8px 18px;border-radius:9px;color:var(--muted);font-weight:600;white-space:nowrap}
+.seg button[aria-current="page"]{background:var(--surface-3);color:var(--fg)}
+.foot{padding-bottom:110px;color:var(--muted);font-size:13px}
+.foot a{color:var(--blue)}
+.modal .tile{width:64px;font-size:22px;flex:none}
+.modal h2{font-family:var(--f-display);font-size:18px;font-weight:700;overflow-wrap:anywhere}
+.kv{display:flex;justify-content:space-between;gap:12px;font-size:14px;padding-block:6px;border-bottom:1px dashed var(--line)}
+.kv b{font-variant-numeric:tabular-nums;text-align:right}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:90;background:var(--surface-3);border:1px solid var(--line);border-radius:12px;padding:10px 16px;box-shadow:var(--shadow);max-width:calc(100% - 32px);font-weight:600}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<header class="hdr"><div class="wrap hdr-in" id="hdr"></div></header>
+<main class="wrap page" id="view"></main>
+<footer class="wrap foot" id="foot"></footer>
+<nav class="bnav" id="bnav" aria-label="Основная навигация"></nav>
+<div id="layer"></div>
+<div id="toast-root" aria-live="polite"></div>
+<script>
+
+"use strict";
+/* ===== Список игр маркетплейса (порядок как на скриншотах). * = «Новое» ===== */
+const GAME_LIST = `Genshin Impact
+Roblox
+Helldivers 2
+Другие игры|any
+Fortnite
+Dota 2
+Valorant
+Counter-Strike 2
+EA Sports FC 27
+Arena Breakout
+Hearthstone
+Minecraft
+STALCRAFT
+Танки ПК
+World of Warcraft
+PUBG
+GTA 5 Online
+GTA 6
+Rust
+Diablo 4
+WARDOGS
+Delta Force
+Dead by Daylight
+eFootball
+Overwatch 2
+Warframe
+Warface
+Forza Horizon
+Albion Online
+War Thunder
+League of Legends
+Zenless Zone Zero
+ARC Raiders
+Escape from Tarkov
+Cyberpunk 2077
+The Sims
+Battlefield 6
+EA SPORTS FC 26
+Русская рыбалка
+Risk of Rain 2
+Aion 2
+Honkai: Star Rail
+Apex Legends
+Resident Evil
+Path of Exile 2
+Dragon's Dogma 2
+Majestic RP
+Clive Barker's Hellraiser: Revival
+Euro Truck Simulator 2
+Red Dead Redemption 2
+Far Cry
+BeamNG.drive
+Radmir RP
+Borderlands 4
+Call of Duty
+Ведьмак 3
+Call of Duty: Modern Warfare
+GTA 5 RP
+War Robots
+Minecraft Dungeons II
+Bodycam
+Team Fortress 2
+Amazing Online
+Total War
+F1 25
+Шахматы|any
+Resident Evil 4
+Wuthering Waves
+Final Fantasy XIV
+Warhammer 40,000
+Rocket League
+Onimusha: Way of the Sword
+DayZ
+Ready or Not
+Active Matter
+God of War
+Marvel Rivals
+It Takes Two
+GTA
+The Last of Us Part II
+UFC 6
+Assassin's Creed
+Kingdom Come: Deliverance
+Mech Arena
+Project Zomboid
+Arizona RP
+CarX Drift Racing
+The Last of Us
+Goose Goose Duck
+Farming Simulator
+Dying Light: The Beast
+Lineage 2M
+Jujutsu Kaisen
+CrossFire
+SnowRunner
+NBA 2K27
+Mount and Blade II: Bannerlord
+Arma: Reforger
+Where Winds Meet
+Metro
+Deadlock
+The Elder Scrolls Online
+Avatar: Frontiers of Pandora
+Fallout
+Spider-Man
+8 Ball Pool
+NTE: Neverness to Everness
+PK XD
+NextRP
+MTA Province
+Limbus Company
+Diablo 3
+NHL 27
+Ace Combat
+Schedule I
+The Seven Deadly Sins
+Kuboom
+Minecraft Dungeons
+The Crew
+Among Us
+Hogwarts Legacy
+Outlast
+Monster Hunter
+7 Days to Die
+Sea of Thieves
+Gears of War
+NieR: Automata
+Assassin's Creed Black Flag Resynced
+Elden Ring
+Sniper Elite
+Geometry Dash
+Sid Meier's Civilization
+TEKKEN 8
+Arknights: Endfield
+Hearts of Iron IV
+Dying Light
+Battlefield
+Garry's Mod
+UFC
+SimCity
+Doom: The Dark Ages
+Elite Dangerous
+Split Fiction
+Phantom Blade Zero
+Magic: The Gathering Arena
+Need for Speed
+The Blood of Dawnwalker
+World of Warcraft Classic
+Ghost of Tsushima
+NHL
+Crimson Desert
+Planet Zoo 2
+ArcheAge
+Tom Clancy's Ghost Recon
+Mortal Kombat
+Squad
+Uncharted
+Watch Dogs 2
+Dead Space
+Mafia
+Days Gone
+Terraria
+Tom Clancy's The Division
+Once Human
+Microsoft Flight Simulator 2024
+Devil May Cry
+Jurassic World
+Titan Quest 2
+Jurassic World Evolution 3
+Sons Of The Forest
+SILENT HILL
+Diablo 2: Resurrected
+Pony Town
+Valheim
+Transport Fever 3
+Gothic
+EA SPORTS FC 25
+Sonic
+Horizon
+No Man's Sky
+Atomic Heart
+World of Warships
+Hytale
+Mortal Kombat 11
+Frostborn
+Assetto Corsa
+PROTOTYPE
+Marvel's Wolverine
+Hunt: Showdown
+Assassin's Creed Shadows
+Sky: Дети Света
+Легенды Драконов
+Death Stranding
+Mass Effect
+Tomb Raider
+Permafrost*
+Heroes of Might and Magic: Olden Era
+Life is Strange
+Baldur's Gate 3
+How to Fish
+Crossout
+Torchlight: Infinite
+City Car Driving
+Marvel's Spider-Man
+Broken Arrow
+Sekiro: Shadows Die Twice
+Stumble Guys
+Dishonored
+NBA
+PEAK
+Wolfenstein
+Star Citizen
+Teardown
+Stellar Blade
+Dragon Age: The Veilguard
+LEGO
+StarCraft 2
+Doom
+Aniimo
+007 First Light
+The Forest
+Detroit: Become Human
+Lies of P
+Plants vs Zombies: Garden Warfare 2
+Naruto
+Black Myth: Wukong
+Crusader Kings
+REMATCH
+Gamble With Friends
+Dead Island
+Borderlands
+Middle-earth: Shadow of Mordor
+Persona 3 Reload
+Counter-Strike 1.6
+AFK Journey
+Satisfactory
+Slay the Spire 2
+Stellaris
+Destiny 2
+Max Payne
+Mortal Kombat Klassic
+For Honor
+Azur Lane
+A Way Out
+FIFA
+Hell Let Loose
+Heroes of the Storm
+Umamusume
+Life MakeOver
+Red Dead Redemption
+Cuphead
+Subnautica
+House Flipper 2
+Unravel
+STAR WARS Jedi: Survivor
+Stray
+Spore
+Phasmophobia
+RV There Yet?
+Plants vs. Zombies
+Factorio
+Age of Empires
+Малиновка РП
+Lords of the Fallen
+Hello Neighbor
+V Rising
+Quarantine Zone
+Barotrauma
+BOMBANANA
+Overcooked! 2
+Deep Rock Galactic
+Россия Онлайн
+VR Игры|any
+Cities: Skylines
+Half-Life
+Mad Max
+Dark Souls
+Batman: Arkham Knight
+Arma 3
+The Finals
+Hitman
+MudRunner
+Back 4 Blood
+Sid Meier's Civilization VII
+Green Hell
+City Car Driving 2
+DEATHLOOP
+Star Wars: Galactic Racer
+Silent Hill 2
+Path of Exile
+World War Z
+DAVE THE DIVER
+Halloween: The Game
+R.E.P.O.
+Serious Sam
+theHunter: Call of the Wild
+ReStory: Chill
+Reverse 1999
+Родина РП
+Car Mechanic Simulator
+Ghost of Yōtei
+Lost Light
+EA SPORTS FC 24
+Football Manager 26
+REANIMAL
+Bully
+Portal
+Stardew Valley
+MOUSE: P.I. For Hire
+SILENT HILL f
+American Truck Simulator
+Anno 117: Pax Romana
+Dispatch
+MIMESIS
+Wanderburg
+Warspear Online
+Crysis
+Demon Slayer
+People Playground
+Prison Architect
+SAMP
+Mafia: The Old Country
+Scrap Mechanic
+Payday
+Control: Resonant
+Buckshot Roulette
+Dead Cells
+The Long Drive
+Hotline Miami
+Car For Sale Simulator
+Left 4 Dead 2
+No, I'm not a Human
+Remnant II
+Graveyard Keeper
+Don't Starve
+Palworld
+Poppy Playtime
+Pummel Party
+RimWorld
+YAPYAP
+Hollow Knight: Silksong
+EA SPORTS Madden NFL 26
+WWE 2K26
+Two Point Museum
+Football Manager
+The Binding of Isaac
+Зомби ферма
+Clair Obscur: Expedition 33
+Star Wars Zero Company
+Planet Zoo
+Bloons TD
+Devour
+Cult of the Lamb
+Directive 8020
+Little Nightmares III
+Call of Dragons
+My Summer Car
+WheelMates
+Grounded 2
+Pragmata
+inZOI
+Icarus
+Suspects: Mystery Mansion
+Танки Браузерные
+Postal
+Bleach Rebirth of Souls
+Life is Strange: Reunion
+Warcraft 3: Reforged
+Avowed
+VHOLUME
+Five Nights at Freddy's
+Anno 1800
+Human Fall Flat
+Persona 5 Royal
+Echoes of Aincrad
+Atomfall
+Tony Hawk's Pro Skater
+Killing Floor 2
+ULTRAKILL
+Indiana Jones and the Great Circle
+Mewgenics
+Low-Budget Repairs
+The Isle
+Deadzone: Rogue
+Elden Ring: Nightreign
+Monster Hunter Wilds
+XCOM 2
+Last Epoch
+Magic Rampage
+Mortal Shell II
+POLYWAR
+Total War: Warhammer III
+OSU!
+Metal Gear Solid
+skate.
+Tormented Souls II
+Mortal Kombat Legacy Kollection
+Kingdom Rush Genesis*
+Tears of Metal
+Happy Wheels*
+Escape from Duckov*
+Dune: Awakening
+Raft
+Prey
+FINAL FANTASY
+Mecha Chameleon
+Shift At Midnight
+Neon Abyss 2*
+Age of Mythology
+BioShock
+Just Cause 4
+Conan Exiles
+MiSide
+ARK: Survival Ascended
+RoadCraft
+Fall Guys
+Halo
+NINJA GAIDEN 4
+Company of Heroes 3
+Darkest Dungeon
+Chivalry 2
+The Long Dark
+Raven 2
+The Elder Scrolls IV: Oblivion
+Wuchang: Fallen Feathers
+Medieval Dynasty
+Grounded*
+Blasphemous
+Tom Clancy's Rainbow Six Siege
+UNO!
+DREDGE
+The Callisto Protocol
+Starfield
+Liars Bar
+AI LIMIT
+Undertale
+Yakuza Kiwami
+Star Wars Outlaws
+Slime Rancher 2
+Construction Simulator
+Beast of Reincarnation
+Machine Party
+Project P.I.T.T
+Silver Pines*`;
+
+/* ===== Приложения и сервисы (раздел «Приложения» маркетплейса). * = «Новое» ===== */
+const APP_GROUPS = [['all', 'Все'], ['ai', 'Нейросети'], ['media', 'Видео и музыка'], ['social', 'Соцсети и чаты'], ['gaming', 'Игровые сервисы'], ['soft', 'Софт и дизайн'], ['other', 'Прочее'], ['fav', 'Избранное']];
+const APP_DATA = {
+  ai: ['Claude', 'ChatGPT', 'Grok', 'Cursor', 'Gemini', 'Suno', 'DeepSeek', 'Perplexity', 'Higgsfield', 'Нейросети', 'HeyGen', 'Kling', 'Runway', 'Kimi', 'n8n', 'PolyBuzz', 'Emochi', 'Chai', 'Character.ai', 'Meshy', 'ElevenLabs', 'Tripo', 'z.ai', 'Midjourney', 'OpenRouter', 'Replit', 'Copilot', 'Magnific', 'Opencode*', 'Pika', 'Recraft', 'PixVerse', 'Bolt.new', 'Gamma', 'Leonardo AI', 'Lovable', 'Trae', 'Genspark', 'Pollo', 'Manus', 'Cluely', 'Krea', 'Chutes AI', 'Hailuo', 'Luma', 'Windsurf', 'Quillbot', 'Ideogram', 'Hugging Face', 'Abacus', 'Vizard', 'Qwen*', 'Civitai*', 'Mistral*', 'Voicemod', 'Photoroom'],
+  media: ['YouTube', 'Spotify', 'Netflix', 'Twitch', 'SoundCloud', 'Prime Video', 'Deezer', 'Tidal', 'Qobuz', 'Kick', 'Trovo', 'Crunchyroll'],
+  social: ['TikTok', 'Telegram', 'Discord', 'Snapchat', 'Likee', 'ВКонтакте', 'Tango Live', 'Bigo Live', 'ZEPETO', 'Slack', 'Element', 'Дзен', 'Yappy'],
+  gaming: ['PlayStation', 'Steam', 'Nintendo', 'Xbox', 'Battle.net', 'Faceit', 'EA Play', 'Rockstar Games', 'Microsoft Store', 'Razer Gold', 'ExitLag', 'Ubisoft', 'GOG', 'Epic Games', 'GeForce NOW', 'GearUP', 'LagoFast', 'NoPing', 'Pax Historia', 'GeoGuessr', 'TeamSpeak', 'Crosshair X', 'YoloMouse', 'Wallpaper Engine'],
+  soft: ['Adobe', 'Windows', 'Figma', 'Autodesk', 'FL Studio', 'iMazing', 'Canva', 'Picsart', 'JetBrains', 'Splice', 'Clip Studio Paint', 'Ableton', 'Soundpad', 'Miro', 'Envato Elements', 'Bandicam', 'CapCut', 'Notion', 'Dropbox', 'Ahrefs', 'Zoom', 'TradingView', 'Аудиоредактор', 'ArtList', 'Хостинг', 'eSIM', 'Дизайн', 'PICO'],
+  other: ['Apple', 'Google Play', 'Duolingo', 'Coursera', 'Quizlet', 'Busuu', 'Mimo', 'Yazio', 'PixelLab', 'Другие приложения']
+};
+const POPULAR_APPS = ['ChatGPT', 'Claude', 'Telegram', 'Spotify', 'Discord', 'Steam', 'Netflix', 'YouTube', 'Midjourney', 'Canva', 'Duolingo', 'Xbox'];
+
+/* ===== Хранилище и настройки ===== */
+const LS_KEY = 'lootly-v1';
+const DEFAULTS = {
+  theme: 'system', currency: 'RUB',
+  notif: { orders: true, msgs: true, deals: false },
+  twofa: false, showOnline: true, payout: 'card',
+  profile: { name: 'Игрок', bio: '', country: 'Россия', color: 0, seller: false },
+  balance: 1500, favs: [], cart: [], purchases: []
+};
+function deepMerge(base, extra) {
+  const out = Array.isArray(base) ? base.slice() : Object.assign({}, base);
+  if (!extra || typeof extra !== 'object') return out;
+  for (const k of Object.keys(extra)) {
+    if (base[k] && typeof base[k] === 'object' && !Array.isArray(base[k])) out[k] = deepMerge(base[k], extra[k]);
+    else out[k] = extra[k];
+  }
+  return out;
+}
+function loadState() {
+  try { const r = localStorage.getItem(LS_KEY); if (r) return deepMerge(DEFAULTS, JSON.parse(r)); } catch (e) {}
+  return JSON.parse(JSON.stringify(DEFAULTS));
+}
+let S = loadState();
+function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {} }
+function applyTheme() {
+  const r = document.documentElement;
+  if (S.theme === 'system') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', S.theme);
+}
+
+/* ===== Валюта ===== */
+const CUR = {
+  RUB: { rate: 1, f: v => Math.round(v).toLocaleString('ru-RU') + ' ₽' },
+  USD: { rate: 1 / 92, f: v => '$' + v.toFixed(2) },
+  EUR: { rate: 1 / 100, f: v => v.toFixed(2).replace('.', ',') + ' €' },
+  KZT: { rate: 5.3, f: v => Math.round(v).toLocaleString('ru-RU') + ' ₸' }
+};
+function money(rub) { const c = CUR[S.currency] || CUR.RUB; return c.f(rub * c.rate); }
+
+/* ===== Утилиты ===== */
+function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function rng(seed) {
+  let a = seed >>> 0;
+  return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function $(sel, root) { return (root || document).querySelector(sel); }
+function pluralOffers(n) { const m = n % 10, h = n % 100; return n + (m === 1 && h !== 11 ? ' предложение' : (m >= 2 && m <= 4 && (h < 12 || h > 14)) ? ' предложения' : ' предложений'); }
+
+/* ===== Игры ===== */
+function detectArch(n) {
+  if (/\bRP\b|РП|SAMP|MTA|Majestic|Radmir|Arizona|Amazing Online|NextRP|Россия Онлайн/i.test(n)) return 'rp';
+  if (/Roblox/i.test(n)) return 'roblox';
+  if (/Genshin|Honkai|Zenless/i.test(n)) return 'hoyo';
+  if (/Wuthering|Umamusume|Azur Lane|AFK Journey|Arknights|Limbus|NTE:|Reverse 1999|Jujutsu|Seven Deadly|Bleach|Demon Slayer|Naruto|Aniimo/i.test(n)) return 'gacha';
+  if (/EA SPORTS|FC \d\d|eFootball|^NBA|^NHL|Madden|UFC|^F1|FIFA|WWE|Football Manager/i.test(n)) return 'sports';
+  if (/8 Ball|Stumble|PK XD|Mech Arena|War Robots|Call of Dragons|^Sky:|Bloons|Geometry Dash|Goose Goose|Among Us|Magic Rampage|Kingdom Rush|Happy Wheels|Life MakeOver|Зомби ферма|Легенды Драконов|Frostborn|CarX|Kuboom|BOMBANANA|Pony Town|Warspear|Танки Браузерные|Torchlight/i.test(n)) return 'mobile';
+  if (/Counter-Strike|Valorant|Apex|Overwatch|Rainbow Six|Warface|CrossFire|Delta Force|Arena Breakout|Escape from Tarkov|Battlefield|^Call of Duty|Marvel Rivals|The Finals|Fortnite|PUBG|DayZ|Team Fortress|Deadlock|Dota|League of Legends|Heroes of the Storm|Hearthstone|Rocket League|StarCraft 2|^Squad|Hunt: Showdown|Hell Let Loose|Helldivers|ARC Raiders|REMATCH|Fall Guys|Garry|Dead by Daylight|For Honor|Magic: The Gathering|TEKKEN|^Mortal Kombat|^Rust$/i.test(n)) return 'comp';
+  if (/World of Warcraft|Albion|Lineage|Aion|ArcheAge|Final Fantasy XIV|Elder Scrolls Online|Warframe|Once Human|Танки ПК|World of Warships|War Thunder|Crossout|STALCRAFT|^Diablo|Path of Exile|Destiny|Dune: Awakening|ARK:|Conan|Sea of Thieves|Warhammer 40|Русская рыбалка|Lost Light|Hytale|^Minecraft$|Star Citizen|Elite Dangerous|GTA 5 Online|^The Sims/i.test(n)) return 'mmo';
+  return 'single';
+}
+const GAMES = GAME_LIST.split('\n').map((line, i) => {
+  let [n, a] = line.split('|');
+  const isNew = n.endsWith('*'); if (isNew) n = n.slice(0, -1);
+  return { id: i, name: n, isNew, arch: a || detectArch(n) };
+});
+let _id = GAMES.length;
+for (const [grpKey, names] of Object.entries(APP_DATA)) for (let n of names) {
+  const isNew = n.endsWith('*'); if (isNew) n = n.slice(0, -1);
+  GAMES.push({ id: _id++, name: n, isNew, arch: 'app', group: grpKey });
+}
+const GAME_COUNT = GAMES.filter(g => g.arch !== 'app').length;
+const ARCH_GROUP = a => ({ roblox: 'mmo', hoyo: 'gacha', any: 'single' }[a] || a);
+const GROUPS = [['all', 'Все'], ['comp', 'Соревновательные'], ['mmo', 'MMO и онлайн'], ['gacha', 'Gacha и аниме'], ['rp', 'RP-серверы'], ['sports', 'Спорт'], ['mobile', 'Мобильные'], ['single', 'Одиночные и кооп'], ['fav', 'Избранное']];
+const GROUP_NAME = Object.fromEntries(GROUPS.concat(APP_GROUPS.filter(x => x[0] !== 'all' && x[0] !== 'fav')));
+const grp = g => g.group || ARCH_GROUP(g.arch);
+const POPULAR = ['Roblox', 'Genshin Impact', 'Fortnite', 'Valorant', 'Counter-Strike 2', 'Dota 2', 'Minecraft', 'GTA 5 Online', 'World of Warcraft', 'Apex Legends', 'PUBG', 'Honkai: Star Rail'];
+
+/* ===== Генерируемые обложки (без внешних картинок) ===== */
+function artBg(name) {
+  const h = hash(name), h1 = h % 360, h2 = (h1 + 40 + (h >>> 9) % 110) % 360;
+  return `linear-gradient(150deg,hsl(${h1} 72% 48%),hsl(${h2} 70% 24%))`;
+}
+function mono(name) {
+  const words = name.replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean);
+  if (!words.length) return '…';
+  if (name === 'Другие игры') return '…';
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+let COVERS = {};
+const COVER_API = '/api/cover?id=';
+const coverOf = g => COVERS[g.id] || (COVER_API && g.arch !== 'app' ? COVER_API + g.id : '');
+function coverByName(n) { const g = GAMES.find(x => x.name === n && x.arch !== 'app'); return g ? coverOf(g) : ''; }
+const coverImg = c => c ? `<img src="${esc(c)}" alt="" loading="lazy" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1">` : '';
+function tile(g, cls) {
+  return `<span class="tile ${cls || ''}" style="background:${artBg(g.name)}">${esc(mono(g.name))}${coverImg(coverOf(g))}${g.isNew ? '<span class="new-tag">Новое</span>' : ''}</span>`;
+}
+
+/* ===== Категории предложений и фильтры ===== */
+const CAT_NAME = { cur: 'Игровая валюта', acc: 'Аккаунты', item: 'Предметы и скины', key: 'Ключи и подарочные карты', boost: 'Услуги и бустинг', sub: 'Подписки', dlc: 'DLC и дополнения', prop: 'Имущество' };
+const ARCH_CATS = {
+  roblox: ['cur', 'sub', 'item', 'acc', 'boost'], hoyo: ['cur', 'sub', 'acc', 'boost'], gacha: ['cur', 'sub', 'acc', 'boost'],
+  comp: ['cur', 'acc', 'item', 'boost', 'key'], mmo: ['cur', 'acc', 'item', 'boost', 'sub'], sports: ['cur', 'acc', 'key', 'sub', 'boost'],
+  rp: ['cur', 'prop', 'acc', 'boost'], app: ['sub', 'key'], mobile: ['cur', 'acc', 'boost'], single: ['key', 'acc', 'dlc', 'sub'], any: ['cur', 'key', 'acc', 'item', 'boost', 'sub']
+};
+const PLATFORMS = {
+  single: ['PC', 'PlayStation', 'Xbox'], comp: ['PC', 'Консоль', 'Mobile'], mmo: ['PC', 'Mobile'], sports: ['PC', 'PlayStation', 'Xbox'],
+  mobile: ['iOS', 'Android'], rp: ['PC', 'Mobile'], hoyo: ['PC', 'iOS', 'Android', 'PlayStation'], gacha: ['PC', 'iOS', 'Android'],
+  roblox: ['PC', 'Mobile', 'Xbox'], app: ['iOS', 'Android', 'PC', 'Web'], any: ['PC', 'Mobile', 'Консоль']
+};
+const CUR_NAMES = [[/Roblox/, 'Robux'], [/Genshin/, 'Кристаллы Сотворения'], [/Honkai/, 'Звёздный нефрит'], [/Zenless/, 'Плёнки'], [/Valorant/, 'Valorant Points'], [/Fortnite/, 'В-баксы'], [/Apex/, 'Apex Coins'], [/FC |FIFA|eFootball/, 'FC Points'], [/World of Warcraft/, 'Золото'], [/PUBG/, 'UC'], [/^Call of Duty/, 'CP'], [/^Minecraft$/, 'Minecoins'], [/Wuthering/, 'Лунные приливы'], [/Overwatch/, 'Монеты Overwatch'], [/League/, 'Riot Points'], [/Albion/, 'Серебро'], [/War Thunder/, 'Золотые орлы'], [/Marvel Rivals/, 'Латтисы'], [/Delta Force/, 'Delta Coins'], [/Arena Breakout/, 'Bonds'], [/Diablo/, 'Платина'], [/Path of Exile/, 'Божественные сферы'], [/8 Ball/, 'Монеты']];
+function curName(g) {
+  for (const [re, n] of CUR_NAMES) if (re.test(g.name)) return n;
+  return { rp: 'Виртуальные деньги', mmo: 'Золото', sports: 'Монеты', mobile: 'Донат-валюта' }[g.arch] || 'Игровая валюта';
+}
+function catLabel(g, c) { if (g.arch === 'app') return { sub: 'Подписки и Premium', key: 'Пополнение и подарочные карты' }[c] || CAT_NAME[c]; return c === 'cur' ? curName(g) : CAT_NAME[c]; }
+function catsFor(g) { return ARCH_CATS[g.arch] || ARCH_CATS.single; }
+
+function filtersFor(g, cat) {
+  const A = g.arch, chips = (id, label, opts) => ({ id, label, type: 'chips', opts }), check = (id, label) => ({ id, label, type: 'check' });
+  const f = [chips('platform', 'Платформа', PLATFORMS[A] || PLATFORMS.single)];
+  if (A === 'app') {
+    if (cat === 'sub') f.push(chips('plan', 'Тариф', ['Базовый', 'Plus / Premium', 'Pro / Max']), chips('term', 'Срок', ['1 месяц', '3 месяца', '12 месяцев']), chips('region', 'Регион', ['RU', 'EU', 'US', 'Global']));
+    else f.push(chips('nominal', 'Номинал', ['до 500', '500–2 000', '2 000–10 000', '10 000+']), chips('region', 'Регион', ['RU', 'EU', 'US', 'Global']));
+    f.push(chips('delivery', 'Выдача', ['Автовыдача', 'Вручную']), check('verified', 'Проверенный продавец'), check('online', 'Продавец онлайн'));
+    return f;
+  }
+  if (cat === 'cur') {
+    f.push(chips('amount', 'Количество', ['до 500', '500–2 000', '2 000–10 000', '10 000+']));
+    if (A === 'rp' || A === 'mmo') f.push(chips('server', 'Сервер', ['Сервер 1', 'Сервер 2', 'Сервер 3', 'Сервер 4']));
+    else f.push(chips('region', 'Регион', ['RU', 'EU', 'US', 'Global']));
+    f.push(chips('method', 'Способ передачи', ['По логину', 'Игровой обмен', 'Код пополнения']));
+  } else if (cat === 'acc') {
+    f.push(chips('level', 'Уровень', ['до 20', '20–50', '50–100', '100+']));
+    if (A === 'comp' || A === 'sports') f.push(chips('rank', 'Ранг', ['Новичок', 'Средний', 'Высокий', 'Топ']));
+    if (A === 'rp' || A === 'mmo') f.push(chips('server', 'Сервер', ['Сервер 1', 'Сервер 2', 'Сервер 3', 'Сервер 4']));
+    if (A === 'hoyo' || A === 'gacha') f.push(chips('chars', 'Редкие персонажи', ['1–3', '4–8', '9+']));
+    f.push(check('fullacc', 'Полный доступ (почта)'), check('nobans', 'Без банов'));
+  } else if (cat === 'item') {
+    f.push(chips('rarity', 'Редкость', ['Обычный', 'Редкий', 'Эпический', 'Легендарный']), chips('kind', 'Тип', ['Скин', 'Предмет', 'Набор']));
+  } else if (cat === 'key') {
+    f.push(chips('edition', 'Издание', ['Standard', 'Deluxe', 'Ultimate']), chips('activation', 'Активация', ['Steam', 'Epic Games', 'EA App', 'PS Store', 'Xbox']), chips('region', 'Регион ключа', ['RU', 'EU', 'US', 'Global']));
+  } else if (cat === 'boost') {
+    f.push(chips('kind', 'Тип услуги', ['Повышение ранга', 'Прохождение', 'Фарм ресурсов', 'Обучение']), chips('speed', 'Срок', ['Стандарт', 'Быстро', 'Экспресс']));
+  } else if (cat === 'sub') {
+    f.push(chips('term', 'Срок', ['1 месяц', '3 месяца', '12 месяцев']), chips('region', 'Регион', ['RU', 'EU', 'US', 'Global']));
+  } else if (cat === 'dlc') {
+    f.push(chips('type', 'Тип', ['Дополнение', 'Набор', 'Сезонный пропуск']), chips('activation', 'Активация', ['Steam', 'Epic Games', 'PS Store', 'Xbox']));
+  } else if (cat === 'prop') {
+    f.push(chips('kind', 'Вид', ['Дом', 'Автомобиль', 'Бизнес', 'Одежда']), chips('server', 'Сервер', ['Сервер 1', 'Сервер 2', 'Сервер 3', 'Сервер 4']));
+  }
+  f.push(chips('delivery', 'Выдача', ['Автовыдача', 'Вручную']), check('verified', 'Проверенный продавец'), check('online', 'Продавец онлайн'));
+  return f;
+}
+
+/* ===== Демо-предложения (генерируются, не настоящие лоты) ===== */
+const SELLERS = ['NightFox', 'Kirill_Store', 'GoldenKey', 'ProBoost24', 'Alina_Shop', 'Gamer4You', 'LootMaster', 'SteamHub', 'TopSeller77', 'Darkwave', 'Sunrise_Games', 'FastKeys', 'ZeroLag', 'Viktor_Accs', 'PixelBazaar', 'RedFalcon'];
+const PRICE_RANGE = { cur: [49, 6900], acc: [190, 9900], item: [30, 15000], key: [290, 5990], boost: [400, 7000], sub: [150, 2500], dlc: [190, 3500], prop: [99, 12000] };
+const OFFER_CACHE = new Map();
+function offersFor(g, cat) {
+  const key = g.id + ':' + cat;
+  if (OFFER_CACHE.has(key)) return OFFER_CACHE.get(key);
+  const r = rng(hash(g.name + '|' + cat)), pick = a => a[Math.floor(r() * a.length)];
+  const filters = filtersFor(g, cat), n = 14 + Math.floor(r() * 26), [lo, hi] = PRICE_RANGE[cat], list = [];
+  for (let i = 0; i < n; i++) {
+    const a = {};
+    for (const f of filters) a[f.id] = f.type === 'chips' ? pick(f.opts) : r() < 0.5;
+    const s = { name: pick(SELLERS) + (r() < 0.4 ? Math.floor(r() * 99) : ''), rating: (4.3 + r() * 0.7).toFixed(1), deals: 20 + Math.floor(r() * 8000) };
+    const p = Math.round((lo + (hi - lo) * Math.pow(r(), 2.2)) / (hi > 1000 ? 10 : 1)) * (hi > 1000 ? 10 : 1);
+    const cn = curName(g); let title;
+    if (g.arch === 'app' && cat === 'key') {
+      const b = { 'до 500': [100, 500], '500–2 000': [500, 2000], '2 000–10 000': [2000, 10000], '10 000+': [10000, 50000] }[a.nominal];
+      const q = Math.round((b[0] + (b[1] - b[0]) * r()) / 50) * 50;
+      title = `${g.name}: пополнение или карта на ${q.toLocaleString('ru-RU')} ₽ · ${a.region}`;
+    } else if (g.arch === 'app' && cat === 'sub') {
+      title = `${g.name}: ${a.plan} на ${a.term} · ${a.region}`;
+    } else if (cat === 'cur') {
+      const b = { 'до 500': [100, 500], '500–2 000': [500, 2000], '2 000–10 000': [2000, 10000], '10 000+': [10000, 120000] }[a.amount];
+      const q = Math.round((b[0] + (b[1] - b[0]) * r()) / 10) * 10;
+      title = `${q.toLocaleString('ru-RU')} ${cn}` + (a.server ? ` · ${a.server}` : '') + ` · ${a.method.toLowerCase()}`;
+    } else if (cat === 'acc') {
+      title = `Аккаунт ${g.name} · уровень ${a.level}` + (a.rank ? ` · ранг: ${a.rank.toLowerCase()}` : '') + (a.chars ? ` · редких персонажей: ${a.chars}` : '') + (a.server ? ` · ${a.server}` : '');
+    } else if (cat === 'item') {
+      title = `${a.rarity} ${a.kind.toLowerCase()} для ${g.name}`;
+    } else if (cat === 'key') {
+      title = `${g.name} — ${a.edition} · ${a.activation} · ${a.region}`;
+    } else if (cat === 'boost') {
+      title = `${a.kind} в ${g.name} · срок: ${a.speed.toLowerCase()}`;
+    } else if (cat === 'sub') {
+      title = `${g.name}: подписка на ${a.term} · ${a.region}`;
+    } else if (cat === 'dlc') {
+      title = `${g.name} — ${a.type.toLowerCase()} · ${a.activation}`;
+    } else {
+      title = `${a.kind} · ${a.server} · ${g.name}`;
+    }
+    const sale = r() < 0.18 ? Math.round(p * (1.15 + r() * 0.3)) : 0;
+    list.push({ id: key + ':' + i, gid: g.id, cat, title, price: p, old: sale, seller: s, attrs: a, online: a.online, verified: a.verified, delivery: a.delivery, sold: Math.floor(r() * 600), sort: r() });
+  }
+  OFFER_CACHE.set(key, list);
+  return list;
+}
+function fromPrice(g) { let m = Infinity; for (const c of catsFor(g)) for (const o of offersFor(g, c)) if (o.price < m) m = o.price; return m; }
+
+/* ===== Магазин игр (отдельный раздел) ===== */
+const SHOP_LIST = `Clair Obscur: Expedition 33|РПГ|3499|PC,PS,XB|0|2025
+Hollow Knight: Silksong|Инди|1190|PC,PS,XB|0|2025
+Elden Ring: Nightreign|Экшен|2999|PC,PS,XB|15|2025
+Baldur's Gate 3|РПГ|3999|PC,PS,XB|20|2023
+Cyberpunk 2077|РПГ|2799|PC,PS,XB|50|2020
+Red Dead Redemption 2|Приключения|3599|PC,PS,XB|40|2018
+Ведьмак 3: Дикая Охота|РПГ|1499|PC,PS,XB|60|2015
+Hogwarts Legacy|РПГ|3299|PC,PS,XB|45|2023
+Elden Ring|РПГ|3999|PC,PS,XB|30|2022
+Black Myth: Wukong|Экшен|3699|PC,PS|10|2024
+Palworld|Выживание|1799|PC,XB|0|2024
+Stardew Valley|Инди|499|PC,PS,XB|0|2016
+Terraria|Инди|499|PC,PS,XB|0|2011
+Dead Space|Хоррор|2999|PC,PS,XB|55|2023
+Resident Evil 4|Хоррор|3299|PC,PS,XB|50|2023
+Silent Hill 2|Хоррор|3999|PC,PS|25|2024
+Lies of P|РПГ|2799|PC,PS,XB|50|2023
+Dishonored|Экшен|999|PC,PS,XB|70|2012
+BioShock|Шутер|799|PC,PS,XB|75|2007
+Mad Max|Приключения|899|PC,PS,XB|75|2015
+Hitman|Экшен|1999|PC,PS,XB|60|2016
+Dying Light: The Beast|Экшен|3499|PC,PS,XB|0|2025
+Battlefield 6|Шутер|4499|PC,PS,XB|10|2025
+Doom: The Dark Ages|Шутер|3999|PC,PS,XB|20|2025
+Split Fiction|Кооператив|2999|PC,PS,XB|0|2025
+It Takes Two|Кооператив|1999|PC,PS,XB|65|2021
+A Way Out|Кооператив|1499|PC,PS,XB|60|2018
+Helldivers 2|Шутер|2299|PC,PS|0|2024
+Sekiro: Shadows Die Twice|Экшен|3299|PC,PS,XB|35|2019
+Dark Souls|РПГ|1599|PC,PS,XB|50|2011
+Assassin's Creed Shadows|Приключения|4299|PC,PS,XB|30|2025
+Ghost of Tsushima|Приключения|3999|PC,PS|20|2020
+God of War|Приключения|2999|PC,PS|40|2018
+The Last of Us Part II|Приключения|3499|PC,PS|35|2020
+Death Stranding|Приключения|2499|PC,PS|55|2019
+Marvel's Spider-Man|Приключения|2999|PC,PS|45|2018
+Stellar Blade|Экшен|3699|PC,PS|15|2024
+Mafia: The Old Country|Экшен|2999|PC,PS,XB|0|2025
+Subnautica|Выживание|1599|PC,PS,XB|50|2018
+Valheim|Выживание|999|PC,XB|0|2021
+Satisfactory|Симулятор|1999|PC|0|2024
+Factorio|Симулятор|1599|PC|0|2020
+RimWorld|Стратегия|1799|PC,PS,XB|0|2018
+Cities: Skylines|Симулятор|1499|PC,PS,XB|75|2015
+Sid Meier's Civilization VII|Стратегия|4499|PC,PS,XB|35|2025
+Total War: Warhammer III|Стратегия|3999|PC|60|2022
+Hearts of Iron IV|Стратегия|2299|PC|50|2016
+Stellaris|Стратегия|1999|PC|75|2016
+Euro Truck Simulator 2|Симулятор|899|PC|60|2012
+Farming Simulator|Симулятор|1999|PC,PS,XB|40|2024
+Need for Speed|Гонки|2999|PC,PS,XB|65|2022
+Assetto Corsa|Гонки|1199|PC,PS,XB|60|2014
+Phasmophobia|Хоррор|599|PC,PS,XB|0|2020
+Outlast|Хоррор|499|PC,PS,XB|80|2013
+Poppy Playtime|Хоррор|699|PC,PS,XB|0|2021
+Five Nights at Freddy's|Хоррор|399|PC,PS,XB|0|2014
+Left 4 Dead 2|Кооператив|499|PC|75|2009
+Portal|Приключения|399|PC|0|2007
+Half-Life|Шутер|499|PC|0|1998
+Among Us|Кооператив|299|PC,PS,XB|0|2018
+Fall Guys|Кооператив|0|PC,PS,XB|0|2020
+Overcooked! 2|Кооператив|1099|PC,PS,XB|75|2018
+Deep Rock Galactic|Кооператив|1499|PC,XB|65|2020
+Sea of Thieves|Приключения|2799|PC,XB|50|2018
+Halo|Шутер|1999|PC,XB|50|2021
+TEKKEN 8|Файтинг|3999|PC,PS,XB|50|2024
+Mortal Kombat 11|Файтинг|1999|PC,PS,XB|70|2019
+Persona 5 Royal|РПГ|3299|PC,PS,XB|40|2022
+Monster Hunter Wilds|Экшен|3999|PC,PS,XB|25|2025
+Devil May Cry|Экшен|1499|PC,PS,XB|65|2013
+NieR: Automata|РПГ|2299|PC,PS,XB|60|2017
+Cuphead|Инди|1199|PC,PS,XB|50|2017
+Dead Cells|Инди|999|PC,PS,XB|60|2018
+Slay the Spire 2|Инди|1399|PC|0|2026
+The Binding of Isaac|Инди|499|PC,PS,XB|75|2011
+Undertale|Инди|399|PC,PS,XB|0|2015
+Don't Starve|Выживание|399|PC,PS,XB|75|2013
+Raft|Выживание|799|PC,PS,XB|0|2022
+Grounded 2|Выживание|1999|PC,XB|0|2025
+Avowed|РПГ|3499|PC,XB|30|2025
+Starfield|РПГ|3999|PC,XB|50|2023
+The Elder Scrolls IV: Oblivion|РПГ|1499|PC,PS,XB|0|2025`;
+const SHOP = SHOP_LIST.split('\n').map((l, i) => {
+  const [name, genre, price, pl, d, y] = l.split('|');
+  return { id: i, name, genre, price: +price, plats: pl.split(','), disc: +d, year: +y, arch: 'single' };
+});
+const SHOP_GENRES = ['Все', ...Array.from(new Set(SHOP.map(x => x.genre)))];
+const shopPrice = x => Math.round(x.price * (1 - x.disc / 100));
+
+/* ===== Иконки ===== */
+const ic = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const ICON = {
+  search: ic('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'),
+  cart: ic('<path d="M3 4h2l2.2 10.2a1 1 0 0 0 1 .8h8.6a1 1 0 0 0 1-.8L19 8H6"/><circle cx="9" cy="19.5" r="1.2"/><circle cx="17" cy="19.5" r="1.2"/>'),
+  gear: ic('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
+  user: ic('<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/>'),
+  market: ic('<path d="M4 9h16l-1.2-5H5.2z"/><path d="M5 9v11h14V9"/><path d="M10 20v-6h4v6"/>'),
+  game: ic('<rect x="2.5" y="7" width="19" height="11" rx="4"/><path d="M7 10.5v4M5 12.5h4"/><circle cx="15.5" cy="11.5" r=".8"/><circle cx="18" cy="13.5" r=".8"/>'),
+  heart: ic('<path d="M12 20.5s-8-4.7-8-10.6A4.4 4.4 0 0 1 12 7.2a4.4 4.4 0 0 1 8 2.7c0 5.9-8 10.6-8 10.6z"/>'),
+  back: ic('<path d="m15 18-6-6 6-6"/>'),
+  filter: ic('<path d="M3 5h18M6 12h12M10 19h4"/>'),
+  close: ic('<path d="M6 6l12 12M18 6 6 18"/>')
+};
+const AV = ['linear-gradient(135deg,#4da3ff,#9a5cff)', 'linear-gradient(135deg,#ff7a59,#c2307a)', 'linear-gradient(135deg,#3ddc97,#1f7ae0)', 'linear-gradient(135deg,#ffb547,#e0482f)', 'linear-gradient(135deg,#7c5cff,#e04fd0)', 'linear-gradient(135deg,#2dd4bf,#4f46e5)'];
+const SYM = { RUB: '₽', USD: '$', EUR: '€', KZT: '₸' };
+
+/* ===== Состояние экрана ===== */
+const R = { route: 'market', kind: 'game', gid: null, cat: null, group: 'all', q: '', gq: '', sort: 'pop', fv: {}, maxPrice: '', shown: 12, fopen: false, shopGenre: 'Все', shopPlat: '', shopSale: false, shopMax: '', shopSort: 'pop', shopQ: '', ptab: 'buys' };
+const view = () => $('#view');
+
+function resetOfferState() { R.fv = {}; R.maxPrice = ''; R.gq = ''; R.sort = 'pop'; R.shown = 12; R.fopen = false; }
+function apply(token) {
+  token = (token || '').replace('#', '');
+  const m = /^g-(\d+)$/.exec(token);
+  if (m && GAMES[+m[1]]) { R.route = 'game'; R.gid = +m[1]; R.cat = null; resetOfferState(); }
+  else if (['market', 'shop', 'profile', 'settings'].includes(token)) R.route = token;
+  else R.route = 'market';
+  render(); window.scrollTo(0, 0);
+}
+function go(token) {
+  apply(token);
+  try { history.pushState(null, '', '#' + token); } catch (e) {}
+}
+
+/* ===== Каркас ===== */
+function renderHeader() {
+  const cartN = S.cart.length, onShop = R.route === 'shop', onMarket = R.route === 'market' || R.route === 'game';
+  $('#hdr').innerHTML = `
+    <button class="logo grad-text" data-go="market" aria-label="Lootly, на главную">Lootly</button>
+    <div class="nav-tabs">
+      <button data-go="market" ${onMarket ? 'aria-current="page"' : ''}>Маркетплейс</button>
+      <button data-go="shop" ${onShop ? 'aria-current="page"' : ''}>Магазин игр</button>
+    </div>
+    <div class="search">${ICON.search}
+      <input id="gsearch" type="search" placeholder="${R.route === 'shop' ? 'Поиск в магазине игр…' : 'Поиск игр: Roblox, Valorant, GTA…'}" autocomplete="off" value="${esc(R.q)}" aria-label="Поиск игр">
+      <div class="pop" id="spop" hidden></div>
+    </div>
+    <div class="hdr-actions">
+      <span class="pill num hide-m" title="Баланс">${money(S.balance)}</span>
+      <button class="icon-btn" data-act="cart" aria-label="Корзина">${ICON.cart}${cartN ? `<span class="badge">${cartN}</span>` : ''}</button>
+      <button class="icon-btn hide-m" data-go="settings" aria-label="Настройки">${ICON.gear}</button>
+      <button class="avatar" data-go="profile" style="background:${AV[S.profile.color % AV.length]}" aria-label="Профиль">${esc((S.profile.name || 'И')[0].toUpperCase())}</button>
+    </div>`;
+  const cur = R.route === 'game' ? 'market' : R.route;
+  $('#bnav').innerHTML = [['market', 'Маркет', ICON.market], ['shop', 'Игры', ICON.game], ['profile', 'Профиль', ICON.user], ['settings', 'Настройки', ICON.gear]]
+    .map(([t, l, i]) => `<button data-go="${t}" ${cur === t ? 'aria-current="page"' : ''}>${i}<span>${l}</span></button>`).join('');
+}
+function render() {
+  renderHeader();
+  const v = { market: viewMarket, game: viewGame, shop: viewShop, profile: viewProfile, settings: viewSettings }[R.route];
+  v();
+  renderFooter();
+}
+function renderFooter() {
+  const f = $('#foot'); if (!f) return;
+  f.innerHTML = `Lootly: демо-прототип, настоящих сделок нет.` + ((Object.keys(COVERS).length || COVER_API) ? ` Данные и обложки игр: <a href="https://rawg.io" target="_blank" rel="noopener">RAWG</a>.` : '');
+}
+
+/* ===== Поиск ===== */
+const ALIASES = [['кс', 'counter-strike'], ['cs', 'counter-strike'], ['гта', 'gta'], ['майнкрафт', 'minecraft'], ['майн', 'minecraft'], ['вов', 'warcraft'], ['тарков', 'tarkov'], ['пабг', 'pubg'], ['апекс', 'apex'], ['валорант', 'valorant'], ['роблокс', 'roblox'], ['роблокс', 'roblox'], ['геншин', 'genshin'], ['фортнайт', 'fortnite'], ['дота', 'dota'], ['witcher', 'ведьмак'], ['лига легенд', 'league of legends'], ['дбд', 'dead by daylight']];
+function matches(name, q) {
+  q = q.trim().toLowerCase(); if (!q) return true;
+  const n = name.toLowerCase(), vars = [q];
+  for (const [a, b] of ALIASES) if (q.includes(a)) vars.push(q.replace(a, b));
+  return vars.some(v => n.includes(v));
+}
+function suggest(q) {
+  const pop = $('#spop'); if (!pop) return;
+  if (!q.trim()) { pop.hidden = true; return; }
+  const res = GAMES.filter(g => matches(g.name, q)).slice(0, 8);
+  pop.innerHTML = res.length ? res.map(g => `<button data-go="g-${g.id}">${tile(g, 'tile-sm')}<span>${esc(g.name)}</span></button>`).join('') : `<div class="muted" style="padding:10px 12px">Ничего не найдено. Попробуйте «Другие игры».</div>`;
+  pop.hidden = false;
+}
+
+/* ===== Главная маркетплейса ===== */
+function viewMarket() {
+  view().innerHTML = `
+    <div class="hero-line">
+      <div><h1>Маркетплейс</h1><p class="muted" style="margin:6px 0 0;max-width:56ch">Игровая валюта, аккаунты, ключи и услуги от продавцов. Выберите игру, чтобы увидеть предложения.</p></div>
+      <div class="demo-note">Демо: предложения и продавцы сгенерированы для примера</div>
+    </div>
+    <div class="seg" style="margin-top:20px" id="kinds"></div>
+    <div class="scroll-x" style="margin-top:14px" id="groups"></div>
+    <div id="home-dyn"></div>`;
+  renderKinds();
+  renderGroups(); renderHomeDyn();
+}
+function renderKinds() {
+  const k = $('#kinds'); if (!k) return;
+  k.innerHTML = `<button data-kind="game" ${R.kind === 'game' ? 'aria-current="page"' : ''}>Игры <span class="muted num">${GAME_COUNT}</span></button><button data-kind="app" ${R.kind === 'app' ? 'aria-current="page"' : ''}>Приложения <span class="muted num">${GAMES.length - GAME_COUNT}</span></button>`;
+}
+function renderGroups() {
+  $('#groups').innerHTML = (R.kind === 'app' ? APP_GROUPS : GROUPS).map(([k, l]) => `<button class="chip" data-group="${k}" aria-pressed="${R.group === k}">${l}${k === 'fav' ? ` · ${S.favs.length}` : ''}</button>`).join('');
+}
+function gameBtn(g) { return `<button class="game" data-go="g-${g.id}" title="${esc(g.name)}">${tile(g)}<span class="nm">${esc(g.name)}</span></button>`; }
+function renderHomeDyn() {
+  const box = $('#home-dyn'); if (!box) return;
+  const isApp = R.kind === 'app';
+  let list = GAMES.filter(g => matches(g.name, R.q));
+  if (!R.q.trim()) list = list.filter(g => (g.arch === 'app') === isApp);
+  if (R.group === 'fav') list = list.filter(g => S.favs.includes(g.id));
+  else if (R.group !== 'all' && !R.q.trim()) list = list.filter(g => grp(g) === R.group);
+  const showRail = !R.q && R.group === 'all';
+  const pop = (isApp ? POPULAR_APPS : POPULAR).map(n => GAMES.find(g => g.name === n)).filter(Boolean);
+  const rail = showRail ? `<div class="sec-head"><h2>Популярное сегодня</h2></div><div class="rail">${pop.map(gameBtn).join('')}</div>` : '';
+  const title = R.q ? `Результаты по запросу «${esc(R.q)}»` : (R.group === 'all' ? (isApp ? 'Все приложения' : 'Все игры') : (R.group === 'fav' ? 'Избранное' : GROUP_NAME[R.group]));
+  const empty = R.group === 'fav' && !list.length ? 'Пока пусто. Откройте игру или приложение и нажмите «В избранное».' : 'Ничего не найдено. Попробуйте «Другие игры» или «Другие приложения».';
+  box.innerHTML = `${rail}<div class="sec-head"><h2>${title} <span class="muted num" style="font-size:14px;font-family:var(--f-body)">${list.length}</span></h2></div>
+    ${list.length ? `<div class="game-grid">${list.map(gameBtn).join('')}</div>` : `<div class="empty">${empty}</div>`}`;
+}
+
+/* ===== Страница игры ===== */
+function viewGame() {
+  const g = GAMES[R.gid], cats = catsFor(g);
+  if (!cats.includes(R.cat)) R.cat = cats[0];
+  const total = cats.reduce((s, c) => s + offersFor(g, c).length, 0), fav = S.favs.includes(g.id);
+  view().innerHTML = `
+    <div class="gh">
+      <div class="gh-art" style="background:${coverOf(g) ? `url('${esc(coverOf(g))}') center/cover, ` : ''}${artBg(g.name)}"></div><div class="gh-veil"></div>
+      <div style="padding-inline:20px">
+        <button class="back" data-go="market" data-kind-back="${g.arch === 'app' ? 'app' : 'game'}" style="color:#fff;opacity:.85">${ICON.back.replace('<svg', '<svg width="18" height="18"')} ${g.arch === 'app' ? 'Приложения' : 'Маркетплейс'}</button>
+        <div class="gh-in">
+          ${tile(g)}
+          <div class="gh-txt">
+            <div class="gh-title">${esc(g.name)}</div>
+            <div class="gh-meta"><span class="pill">${esc(GROUP_NAME[grp(g)] || 'Игры')}</span><span class="pill">${(PLATFORMS[g.arch] || PLATFORMS.single).join(' · ')}</span><span class="pill num">${pluralOffers(total)}</span><span class="pill num">от ${money(fromPrice(g))}</span></div>
+          </div>
+          <div class="gh-act"><button class="btn ${fav ? 'primary' : ''}" data-fav="${g.id}">${ICON.heart.replace('<svg', '<svg width="17" height="17"')} ${fav ? 'В избранном' : 'В избранное'}</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="cat-tabs" role="tablist" id="cats"></div>
+    <div class="layout">
+      <aside class="fpanel" id="fpanel" data-open="${R.fopen}"></aside>
+      <section style="min-width:0">
+        <div class="toolbar">
+          <input class="grow" id="gq" type="search" placeholder="Поиск по предложениям" value="${esc(R.gq)}" aria-label="Поиск по предложениям" style="flex:1 1 200px">
+          <button class="btn f-toggle" data-act="ftoggle">${ICON.filter.replace('<svg', '<svg width="17" height="17"')} Фильтры</button>
+          <select id="gsort" aria-label="Сортировка" style="width:auto;flex:none">
+            <option value="pop">Популярные</option><option value="asc">Сначала дешёвые</option><option value="desc">Сначала дорогие</option><option value="rate">По рейтингу</option>
+          </select>
+        </div>
+        <div class="offers" id="offers"></div>
+      </section>
+    </div>`;
+  $('#gsort').value = R.sort;
+  renderCats(); renderFilters(); renderOffers();
+}
+function renderCats() {
+  const g = GAMES[R.gid];
+  $('#cats').innerHTML = catsFor(g).map(c => `<button role="tab" data-cat="${c}" aria-selected="${R.cat === c}">${esc(catLabel(g, c))}<span class="cnt num">${offersFor(g, c).length}</span></button>`).join('');
+}
+function renderFilters() {
+  const g = GAMES[R.gid], fs = filtersFor(g, R.cat), p = $('#fpanel');
+  p.setAttribute('data-open', R.fopen);
+  p.innerHTML = `<h3>Фильтры · ${esc(catLabel(g, R.cat))}</h3>` + fs.map(f => {
+    if (f.type === 'chips') return `<div class="fg"><span class="lbl">${f.label}</span><div class="chips">${f.opts.map(o => `<button class="chip" data-f="${f.id}" data-v="${esc(o)}" aria-pressed="${R.fv[f.id] === o}">${esc(o)}</button>`).join('')}</div></div>`;
+    return `<label class="check"><input type="checkbox" data-fc="${f.id}" ${R.fv[f.id] ? 'checked' : ''}> ${f.label}</label>`;
+  }).join('') + `<div class="fg"><label for="fmax">Цена до, ${SYM[S.currency]}</label><input id="fmax" type="number" min="0" inputmode="numeric" placeholder="Без ограничения" value="${esc(R.maxPrice)}"></div>
+  <button class="btn sm" data-act="freset">Сбросить фильтры</button>`;
+}
+function getOffer(id) { const [gid, cat, i] = id.split(':'); return offersFor(GAMES[+gid], cat)[+i]; }
+function filteredOffers() {
+  const g = GAMES[R.gid], rate = (CUR[S.currency] || CUR.RUB).rate, q = R.gq.trim().toLowerCase();
+  let l = offersFor(g, R.cat).filter(o => {
+    for (const [k, v] of Object.entries(R.fv)) { if (v === true && !o.attrs[k]) return false; if (typeof v === 'string' && v && o.attrs[k] !== v) return false; }
+    if (R.maxPrice !== '' && o.price * rate > +R.maxPrice) return false;
+    if (q && !o.title.toLowerCase().includes(q) && !o.seller.name.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const s = { pop: (a, b) => b.sold - a.sold, asc: (a, b) => a.price - b.price, desc: (a, b) => b.price - a.price, rate: (a, b) => b.seller.rating - a.seller.rating }[R.sort];
+  return l.sort(s);
+}
+function renderOffers() {
+  const l = filteredOffers(), box = $('#offers'); if (!box) return;
+  if (!l.length) { box.innerHTML = `<div class="empty">Под такие фильтры ничего нет. Ослабьте условия или нажмите «Сбросить фильтры».</div>`; return; }
+  box.innerHTML = `<div class="muted num" style="font-size:13px">Найдено: ${pluralOffers(l.length)}</div>` + l.slice(0, R.shown).map(o => {
+    const tags = Object.entries(o.attrs).filter(([k, v]) => typeof v === 'string' && !['delivery'].includes(k)).slice(0, 4).map(([, v]) => `<span class="tag">${esc(v)}</span>`).join('');
+    return `<article class="offer">
+      <div style="min-width:0"><h3>${esc(o.title)}</h3>
+        <div class="tags">${tags}<span class="tag ${o.delivery === 'Автовыдача' ? 'good' : ''}">${o.delivery}</span>${o.verified ? '<span class="tag good">Проверен</span>' : ''}</div>
+        <div class="seller"><span class="dot ${o.online ? 'on' : ''}"></span><b style="color:var(--fg)">${esc(o.seller.name)}</b><span class="num">★ ${o.seller.rating}</span><span class="num">${o.seller.deals.toLocaleString('ru-RU')} сделок</span></div></div>
+      <div class="price-col"><div class="price">${o.old ? `<span class="old">${money(o.old)}</span>` : ''}${money(o.price)}</div><button class="btn primary sm" data-buy="${o.id}">Купить</button></div>
+    </article>`;
+  }).join('') + (l.length > R.shown ? `<button class="btn" data-act="more" style="align-self:center">Показать ещё</button>` : '');
+}
+
+/* ===== Окна ===== */
+function openLayer(html, cls) { $('#layer').innerHTML = html; document.body.style.overflow = 'hidden'; }
+function closeLayer() { $('#layer').innerHTML = ''; document.body.style.overflow = ''; }
+let toastT;
+function toast(msg) { const r = $('#toast-root'); r.innerHTML = `<div class="toast">${esc(msg)}</div>`; clearTimeout(toastT); toastT = setTimeout(() => { r.innerHTML = ''; }, 2600); }
+function buyModal(id) {
+  const o = getOffer(id), g = GAMES[o.gid], ok = S.balance >= o.price;
+  openLayer(`<div class="modal-bg" data-close><div class="modal" role="dialog" aria-modal="true" aria-label="Оформление заказа">
+    <h2>Оформление заказа</h2>
+    <div><div style="font-weight:600;overflow-wrap:anywhere">${esc(o.title)}</div>
+    <div class="kv"><span class="muted">Игра</span><b>${esc(g.name)}</b></div>
+    <div class="kv"><span class="muted">Раздел</span><b>${esc(catLabel(g, o.cat))}</b></div>
+    <div class="kv"><span class="muted">Продавец</span><b>${esc(o.seller.name)} · ★ ${o.seller.rating}</b></div>
+    <div class="kv"><span class="muted">Выдача</span><b>${o.delivery}</b></div>
+    <div class="kv"><span class="muted">К оплате</span><b style="font-size:18px">${money(o.price)}</b></div>
+    <div class="kv"><span class="muted">Баланс</span><b style="color:${ok ? 'var(--good)' : 'var(--bad)'}">${money(S.balance)}</b></div></div>
+    <p class="muted" style="margin:0;font-size:13px">Это демо-режим: реальная оплата не подключена, списывается виртуальный баланс.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-pay="${o.id}" ${ok ? '' : 'disabled'}>Оплатить с баланса</button>${ok ? '' : `<button class="btn" data-topup>Пополнить на 1 000 ₽ (демо)</button>`}<button class="btn" data-close-btn>Отмена</button></div>
+  </div></div>`);
+}
+
+/* ===== Магазин игр ===== */
+const PLAT = { PC: 'PC', PS: 'PlayStation', XB: 'Xbox' };
+function shopFiltered() {
+  const rate = (CUR[S.currency] || CUR.RUB).rate;
+  let l = SHOP.filter(x => (R.shopGenre === 'Все' || x.genre === R.shopGenre) && (!R.shopPlat || x.plats.includes(R.shopPlat)) && (!R.shopSale || x.disc > 0)
+    && (R.shopMax === '' || shopPrice(x) * rate <= +R.shopMax) && matches(x.name, R.q));
+  const s = { pop: (a, b) => b.disc - a.disc || b.year - a.year, asc: (a, b) => shopPrice(a) - shopPrice(b), desc: (a, b) => shopPrice(b) - shopPrice(a), new: (a, b) => b.year - a.year, sale: (a, b) => b.disc - a.disc }[R.shopSort];
+  return l.sort(s);
+}
+function priceHtml(x) { const p = shopPrice(x); return p === 0 ? 'Бесплатно' : (x.disc ? `<span class="old">${money(x.price)}</span>` : '') + money(p); }
+function posterBtn(x) {
+  return `<button class="poster" data-shop="${x.id}" title="${esc(x.name)}"><span class="art" style="background:${artBg(x.name)}">${esc(mono(x.name))}${coverImg(coverByName(x.name))}${x.disc ? `<span class="disc num">−${x.disc}%</span>` : ''}</span>
+    <span class="nm">${esc(x.name)}</span><span class="sub">${x.genre} · ${x.year}</span><span class="pr num">${priceHtml(x)}</span></button>`;
+}
+function viewShop() {
+  const feat = ['Clair Obscur: Expedition 33', 'Elden Ring: Nightreign', 'Hollow Knight: Silksong'].map(n => SHOP.find(x => x.name === n));
+  view().innerHTML = `
+    <div class="hero-line"><div><h1>Магазин игр</h1><p class="muted" style="margin:6px 0 0;max-width:56ch">Лицензионные ключи и игры от Lootly. Этот раздел отделён от маркетплейса продавцов.</p></div>
+    <div class="demo-note">Демо: цены примерные, оплата не подключена</div></div>
+    <div class="shop-hero" style="margin-top:20px">${feat.map(x => `<button class="feat" data-shop="${x.id}" style="background:${coverByName(x.name) ? `url(\'${esc(coverByName(x.name))}\') center/cover, ` : ''}${artBg(x.name)}"><span class="mono">${esc(mono(x.name))}</span><span class="pill num">${x.disc ? '−' + x.disc + '% · ' : ''}${money(shopPrice(x))}</span><h3>${esc(x.name)}</h3><span style="opacity:.85;font-size:14px">${x.genre} · ${x.year}</span></button>`).join('')}</div>
+    <div class="sec-head"><h2>Каталог <span class="muted num" id="shop-count" style="font-size:14px;font-family:var(--f-body)"></span></h2></div>
+    <div class="shop-layout"><aside class="fpanel" id="fpanel" data-open="${R.fopen}"></aside>
+    <section style="min-width:0"><div class="toolbar"><button class="btn f-toggle" data-act="ftoggle">${ICON.filter.replace('<svg', '<svg width="17" height="17"')} Фильтры</button>
+      <select id="ssort" aria-label="Сортировка" style="width:auto;margin-left:auto"><option value="pop">Популярные</option><option value="sale">Самые большие скидки</option><option value="new">Сначала новые</option><option value="asc">Сначала дешёвые</option><option value="desc">Сначала дорогие</option></select></div>
+      <div class="poster-grid" id="shop-grid"></div></section></div>`;
+  $('#ssort').value = R.shopSort; renderShopFilters(); renderShopGrid();
+}
+function renderShopFilters() {
+  $('#fpanel').innerHTML = `<h3>Фильтры</h3>
+    <div class="fg"><span class="lbl">Жанр</span><div class="chips">${SHOP_GENRES.map(g => `<button class="chip" data-sg="${esc(g)}" aria-pressed="${R.shopGenre === g}">${esc(g)}</button>`).join('')}</div></div>
+    <div class="fg"><span class="lbl">Платформа</span><div class="chips">${Object.entries(PLAT).map(([k, v]) => `<button class="chip" data-sp="${k}" aria-pressed="${R.shopPlat === k}">${v}</button>`).join('')}</div></div>
+    <label class="check"><input type="checkbox" id="ssale" ${R.shopSale ? 'checked' : ''}> Только со скидкой</label>
+    <div class="fg"><label for="smax">Цена до, ${SYM[S.currency]}</label><input id="smax" type="number" min="0" inputmode="numeric" placeholder="Без ограничения" value="${esc(R.shopMax)}"></div>
+    <button class="btn sm" data-act="sreset">Сбросить фильтры</button>`;
+}
+function renderShopGrid() {
+  const l = shopFiltered(), g = $('#shop-grid'); if (!g) return;
+  $('#shop-count').textContent = l.length;
+  g.innerHTML = l.length ? l.map(posterBtn).join('') : `<div class="empty" style="grid-column:1/-1">Игры не найдены. Измените фильтры или поисковый запрос.</div>`;
+}
+function shopModal(id) {
+  const x = SHOP[id], inCart = S.cart.includes(id), p = shopPrice(x);
+  openLayer(`<div class="modal-bg" data-close><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(x.name)}">
+    <div style="display:flex;gap:14px;align-items:center">${tile(x)}<div style="min-width:0"><h2>${esc(x.name)}</h2><div class="muted" style="font-size:14px">${x.genre} · ${x.year}</div></div></div>
+    <div class="chips">${x.plats.map(k => `<span class="tag">${PLAT[k]}</span>`).join('')}<span class="tag good">Ключ на email</span></div>
+    <div class="price num" style="font-size:24px">${priceHtml(x)}${x.disc ? ` <span class="tag good" style="vertical-align:middle">−${x.disc}%</span>` : ''}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-cartadd="${x.id}" ${inCart ? 'disabled' : ''}>${inCart ? 'Уже в корзине' : 'В корзину'}</button><button class="btn" data-close-btn>Закрыть</button></div>
+  </div></div>`);
+}
+function cartDrawer() {
+  const items = S.cart.map(i => SHOP[i]), total = items.reduce((s, x) => s + shopPrice(x), 0), ok = S.balance >= total;
+  openLayer(`<div class="drawer-bg" data-close><div class="drawer" role="dialog" aria-modal="true" aria-label="Корзина">
+    <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="font-family:var(--f-display);font-size:18px">Корзина</h2><button class="icon-btn" data-close-btn aria-label="Закрыть">${ICON.close}</button></div>
+    ${items.length ? items.map(x => `<div class="cart-row">${tile(x)}<div style="min-width:0"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</div><div class="muted num" style="font-size:13px">${money(shopPrice(x))}</div></div><button class="btn sm" data-cartrm="${x.id}">Убрать</button></div>`).join('')
+      : `<div class="empty">В корзине пусто. Добавьте игры в разделе «Магазин игр».</div>`}
+    ${items.length ? `<div class="kv"><span class="muted">Итого</span><b style="font-size:18px">${money(total)}</b></div><div class="kv"><span class="muted">Баланс</span><b style="color:${ok ? 'var(--good)' : 'var(--bad)'}">${money(S.balance)}</b></div>
+      <p class="muted" style="margin:0;font-size:13px">Демо-режим: списывается виртуальный баланс.</p>
+      <button class="btn primary" data-checkout ${ok ? '' : 'disabled'}>Оформить заказ</button>${ok ? '' : '<button class="btn" data-topup>Пополнить на 1 000 ₽ (демо)</button>'}` : ''}
+  </div></div>`);
+}
+
+/* ===== Профиль ===== */
+const COUNTRIES = ['Россия', 'Беларусь', 'Казахстан', 'Украина', 'Армения', 'Грузия', 'Другая'];
+function viewProfile() {
+  const p = S.profile, favs = S.favs.map(i => GAMES[i]).filter(Boolean);
+  const tabs = [['buys', 'Покупки'], ['favs', 'Избранное'], ['sales', 'Продажи']];
+  let body;
+  if (R.ptab === 'buys') body = S.purchases.length ? `<div class="hist">${S.purchases.slice(0, 30).map(x => `<div class="row"><div class="l"><span class="tile" style="background:${artBg(x.t)}">${esc(mono(x.t))}</span><div><div class="t" style="overflow-wrap:anywhere">${esc(x.t)}</div><div class="d">${esc(x.d)} · ${x.k === 'shop' ? 'Магазин игр' : 'Маркетплейс'}</div></div></div><div style="text-align:right"><div class="num" style="font-weight:700">${money(x.p)}</div><span class="status">Демо</span></div></div>`).join('')}</div>` : `<div class="empty">Покупок пока нет. Откройте игру и нажмите «Купить».</div>`;
+  else if (R.ptab === 'favs') body = favs.length ? `<div class="game-grid">${favs.map(gameBtn).join('')}</div>` : `<div class="empty">Избранных игр нет. Откройте игру и нажмите «В избранное».</div>`;
+  else body = p.seller ? `<div class="empty">Режим продавца включён. Создание лотов появится на следующем шаге разработки.<br><button class="btn sm" data-seller style="margin-top:12px">Выключить режим продавца</button></div>` : `<div class="empty">Вы не продаёте на Lootly.<br><button class="btn primary sm" data-seller style="margin-top:12px">Стать продавцом</button></div>`;
+  view().innerHTML = `
+    <div class="card profile-top"><span class="avatar lg" style="background:${AV[p.color % AV.length]}">${esc((p.name || 'И')[0].toUpperCase())}</span>
+      <div style="flex:1 1 220px;min-width:0"><h1>${esc(p.name || 'Игрок')}</h1><div class="muted" style="font-size:14px">${esc(p.country)} · ID L-${String(hash(p.name || 'x')).slice(0, 6)} · ${p.seller ? 'Продавец' : 'Покупатель'}</div>${p.bio ? `<p style="margin:8px 0 0;overflow-wrap:anywhere">${esc(p.bio)}</p>` : ''}</div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start"><div class="muted" style="font-size:13px">Баланс</div><div class="price num">${money(S.balance)}</div><button class="btn sm" data-topup>Пополнить на 1 000 ₽ (демо)</button></div></div>
+    <div class="two"><div class="card" style="min-width:0"><div class="sub-tabs">${tabs.map(([k, l]) => `<button class="chip" data-ptab="${k}" aria-pressed="${R.ptab === k}">${l}</button>`).join('')}</div>${body}</div>
+      <div class="card form" style="align-self:start"><h2 style="font-family:var(--f-display);font-size:17px;font-weight:700">Данные профиля</h2>
+        <label>Никнейм<input id="pf-name" maxlength="24" value="${esc(p.name)}"></label>
+        <label>О себе<textarea id="pf-bio" maxlength="160" placeholder="Коротко о себе или о том, что вы продаёте">${esc(p.bio)}</textarea></label>
+        <label>Страна<select id="pf-country">${COUNTRIES.map(c => `<option ${c === p.country ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+        <div><div style="font-weight:600;font-size:14px;margin-bottom:8px">Цвет аватара</div><div class="swatches">${AV.map((a, i) => `<button class="sw" data-sw="${i}" style="background:${a}" aria-pressed="${p.color === i}" aria-label="Цвет ${i + 1}"></button>`).join('')}</div></div>
+        <button class="btn primary" data-saveprof>Сохранить</button></div></div>`;
+}
+function readProfileForm() {
+  const n = $('#pf-name'); if (!n) return;
+  S.profile.name = n.value.trim() || 'Игрок'; S.profile.bio = $('#pf-bio').value.trim(); S.profile.country = $('#pf-country').value;
+}
+
+/* ===== Настройки ===== */
+const tgl = (path, on, t, d) => `<div class="row"><div><div class="t">${t}</div>${d ? `<div class="d">${d}</div>` : ''}</div><button class="toggle" role="switch" aria-checked="${on}" aria-label="${t}" data-tg="${path}"></button></div>`;
+function viewSettings() {
+  view().innerHTML = `<div class="hero-line"><h1>Настройки</h1></div>
+  <div style="display:grid;gap:16px;margin-top:18px;max-width:760px">
+    <div class="card"><h2 style="font-family:var(--f-display);font-size:16px;margin-bottom:6px">Внешний вид и регион</h2>
+      <div class="row"><div><div class="t">Тема</div><div class="d">Системная следует настройкам устройства</div></div><div class="chips">${[['system', 'Системная'], ['dark', 'Тёмная'], ['light', 'Светлая']].map(([k, l]) => `<button class="chip" data-theme-set="${k}" aria-pressed="${S.theme === k}">${l}</button>`).join('')}</div></div>
+      <div class="row"><div><div class="t">Валюта цен</div><div class="d">Цены пересчитываются по примерному курсу</div></div><select class="sel" id="set-cur">${Object.keys(CUR).map(c => `<option ${c === S.currency ? 'selected' : ''}>${c}</option>`).join('')}</select></div></div>
+    <div class="card"><h2 style="font-family:var(--f-display);font-size:16px;margin-bottom:6px">Уведомления</h2>
+      ${tgl('notif.orders', S.notif.orders, 'Статусы заказов', 'Оплата, выдача, споры')}${tgl('notif.msgs', S.notif.msgs, 'Сообщения', 'Новые сообщения от продавцов и покупателей')}${tgl('notif.deals', S.notif.deals, 'Скидки и акции', 'Подборки раз в неделю')}</div>
+    <div class="card"><h2 style="font-family:var(--f-display);font-size:16px;margin-bottom:6px">Безопасность и приватность</h2>
+      ${tgl('twofa', S.twofa, 'Двухфакторная защита', 'Код при входе с нового устройства')}${tgl('showOnline', S.showOnline, 'Показывать статус «онлайн»', 'Видят покупатели и продавцы')}
+      <div class="row"><div><div class="t">Сеансы</div><div class="d">Завершить вход на всех устройствах</div></div><button class="btn sm" data-act="logoutall">Выйти везде</button></div></div>
+    <div class="card"><h2 style="font-family:var(--f-display);font-size:16px;margin-bottom:6px">Платежи</h2>
+      <div class="row"><div><div class="t">Способ вывода средств</div><div class="d">Для продавцов</div></div><select class="sel" id="set-payout">${[['card', 'Банковская карта'], ['sbp', 'СБП'], ['wallet', 'Электронный кошелёк']].map(([k, l]) => `<option value="${k}" ${S.payout === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
+    <div class="card"><h2 style="font-family:var(--f-display);font-size:16px;margin-bottom:6px">Данные демо</h2>
+      <div class="row"><div><div class="t">Сбросить всё</div><div class="d">Очистит профиль, избранное, корзину и покупки на этом устройстве</div></div><button class="btn sm danger" data-reset>Сбросить</button></div></div>
+  </div>`;
+}
+
+/* ===== События ===== */
+document.addEventListener('click', e => {
+  const t = e.target, q = s => t.closest(s);
+  if (!q('.search')) { const p = $('#spop'); if (p) p.hidden = true; }
+  let el;
+  if ((el = q('[data-kind]'))) { R.kind = el.dataset.kind; R.group = 'all'; R.q = ''; const gs = $('#gsearch'); if (gs) gs.value = ''; viewMarket(); return; }
+  if ((el = q('[data-go]'))) { R.q = ''; if (el.dataset.kindBack) R.kind = el.dataset.kindBack; go(el.dataset.go); return; }
+  if (t.matches('[data-close]') || q('[data-close-btn]')) { closeLayer(); return; }
+  if ((el = q('[data-group]'))) { R.group = el.dataset.group; renderGroups(); renderHomeDyn(); return; }
+  if ((el = q('[data-cat]'))) { R.cat = el.dataset.cat; R.fv = {}; R.maxPrice = ''; R.gq = ''; R.shown = 12; $('#gq').value = ''; renderCats(); renderFilters(); renderOffers(); return; }
+  if ((el = q('[data-f]'))) { const k = el.dataset.f, v = el.dataset.v; R.fv[k] = R.fv[k] === v ? '' : v; R.shown = 12; renderFilters(); renderOffers(); return; }
+  if ((el = q('[data-fav]'))) { const id = +el.dataset.fav, i = S.favs.indexOf(id); if (i < 0) S.favs.push(id); else S.favs.splice(i, 1); save(); viewGame(); toast(i < 0 ? 'Добавлено в избранное' : 'Убрано из избранного'); return; }
+  if ((el = q('[data-buy]'))) { buyModal(el.dataset.buy); return; }
+  if ((el = q('[data-pay]'))) {
+    const o = getOffer(el.dataset.pay); if (S.balance < o.price) return;
+    S.balance -= o.price; S.purchases.unshift({ t: o.title, p: o.price, d: new Date().toLocaleDateString('ru-RU'), k: 'market' }); save(); closeLayer(); renderHeader(); toast('Заказ оформлен (демо)'); return;
+  }
+  if (q('[data-topup]')) { S.balance += 1000; save(); closeLayer(); render(); toast('Баланс пополнен на 1 000 ₽ (демо)'); return; }
+  if ((el = q('[data-act]'))) {
+    const a = el.dataset.act;
+    if (a === 'cart') cartDrawer();
+    else if (a === 'ftoggle') { R.fopen = !R.fopen; $('#fpanel').setAttribute('data-open', R.fopen); }
+    else if (a === 'freset') { R.fv = {}; R.maxPrice = ''; R.shown = 12; renderFilters(); renderOffers(); }
+    else if (a === 'more') { R.shown += 12; renderOffers(); }
+    else if (a === 'sreset') { R.shopGenre = 'Все'; R.shopPlat = ''; R.shopSale = false; R.shopMax = ''; renderShopFilters(); renderShopGrid(); }
+    else if (a === 'logoutall') toast('Демо: сеансы завершены');
+    return;
+  }
+  if ((el = q('[data-shop]'))) { shopModal(+el.dataset.shop); return; }
+  if ((el = q('[data-cartadd]'))) { const id = +el.dataset.cartadd; if (!S.cart.includes(id)) S.cart.push(id); save(); closeLayer(); renderHeader(); toast('Добавлено в корзину'); return; }
+  if ((el = q('[data-cartrm]'))) { S.cart = S.cart.filter(i => i !== +el.dataset.cartrm); save(); renderHeader(); cartDrawer(); return; }
+  if (q('[data-checkout]')) {
+    const items = S.cart.map(i => SHOP[i]), total = items.reduce((s, x) => s + shopPrice(x), 0); if (S.balance < total) return;
+    S.balance -= total; const d = new Date().toLocaleDateString('ru-RU'); items.forEach(x => S.purchases.unshift({ t: x.name, p: shopPrice(x), d, k: 'shop' })); S.cart = []; save(); closeLayer(); render(); toast('Заказ оформлен (демо)'); return;
+  }
+  if ((el = q('[data-sg]'))) { R.shopGenre = el.dataset.sg; renderShopFilters(); renderShopGrid(); return; }
+  if ((el = q('[data-sp]'))) { R.shopPlat = R.shopPlat === el.dataset.sp ? '' : el.dataset.sp; renderShopFilters(); renderShopGrid(); return; }
+  if ((el = q('[data-theme-set]'))) { S.theme = el.dataset.themeSet; save(); applyTheme(); viewSettings(); return; }
+  if ((el = q('[data-tg]'))) {
+    const path = el.dataset.tg.split('.'); let o = S; while (path.length > 1) o = o[path.shift()]; o[path[0]] = !o[path[0]]; save(); viewSettings(); toast('Сохранено'); return;
+  }
+  if ((el = q('[data-ptab]'))) { readProfileForm(); R.ptab = el.dataset.ptab; viewProfile(); return; }
+  if ((el = q('[data-sw]'))) { readProfileForm(); S.profile.color = +el.dataset.sw; save(); render(); return; }
+  if (q('[data-saveprof]')) { readProfileForm(); save(); render(); toast('Профиль сохранён'); return; }
+  if (q('[data-seller]')) { S.profile.seller = !S.profile.seller; save(); viewProfile(); return; }
+  if ((el = q('[data-reset]'))) {
+    if (el.dataset.sure) { try { localStorage.removeItem(LS_KEY); } catch (er) {} S = JSON.parse(JSON.stringify(DEFAULTS)); applyTheme(); render(); toast('Данные сброшены'); }
+    else { el.dataset.sure = '1'; el.textContent = 'Точно сбросить?'; }
+  }
+});
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.id === 'gsearch') {
+    R.q = t.value;
+    if (R.route === 'market' || R.route === 'game') suggest(R.q); else { const p = $('#spop'); if (p) p.hidden = true; }
+    if (R.route === 'market') renderHomeDyn(); else if (R.route === 'shop') renderShopGrid();
+  } else if (t.id === 'gq') { R.gq = t.value; R.shown = 12; renderOffers(); }
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'gsort') { R.sort = t.value; renderOffers(); }
+  else if (t.id === 'fmax') { R.maxPrice = t.value; R.shown = 12; renderOffers(); }
+  else if (t.dataset && t.dataset.fc) { R.fv[t.dataset.fc] = t.checked; R.shown = 12; renderOffers(); }
+  else if (t.id === 'ssort') { R.shopSort = t.value; renderShopGrid(); }
+  else if (t.id === 'smax') { R.shopMax = t.value; renderShopGrid(); }
+  else if (t.id === 'ssale') { R.shopSale = t.checked; renderShopGrid(); }
+  else if (t.id === 'set-cur') { S.currency = t.value; save(); render(); toast('Валюта изменена'); }
+  else if (t.id === 'set-payout') { S.payout = t.value; save(); toast('Сохранено'); }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLayer(); const p = $('#spop'); if (p) p.hidden = true; } });
+window.addEventListener('popstate', () => apply(location.hash));
+window.addEventListener('hashchange', () => apply(location.hash));
+
+/* ===== Старт ===== */
+applyTheme();
+apply(location.hash);
+try { fetch('covers.json').then(r => r.ok ? r.json() : {}).then(j => { if (j && Object.keys(j).length) { COVERS = j; render(); } }).catch(() => {}); } catch (e) {}
+</script>
+
+</body>
+</html>
