@@ -1373,7 +1373,7 @@ document.addEventListener('click', e => {
     else if (a === 'freset') { R.fv = {}; R.maxPrice = ''; R.shown = 12; renderFilters(); renderOffers(); }
     else if (a === 'more') { R.shown += 12; renderOffers(); }
     else if (a === 'sreset') { R.shopGenre = 'Все'; R.shopPlat = ''; R.shopSale = false; R.shopMax = ''; renderShopFilters(); renderShopGrid(); }
-    else if (a === 'logoutall') toast('Демо: сеансы завершены');
+    else if (a === 'logoutall') { try { fetch('/api/logout', { method: 'POST' }); } catch (er) {} location.href = '/login'; }
     return;
   }
   if ((el = q('[data-shop]'))) { shopModal(+el.dataset.shop); return; }
