@@ -4,6 +4,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const auth = require('./auth');
 
 /* ============================================================
    ПАРОЛЬ НА ВХОД НА САЙТ
@@ -86,18 +87,28 @@ function isAuthed(req) {
   return true;
 }
 
-// подбор пароля: не больше 10 попыток с одного IP за 10 минут
-const tries = new Map(); // ip -> { n, reset }
-function tooManyTries(ip) {
-  const a = tries.get(ip);
-  if (a && a.reset > Date.now()) return a.n >= 10;
-  tries.set(ip, { n: 0, reset: Date.now() + 10 * 60 * 1000 });
-  return false;
+// ограничение попыток: счётчики по ключу (IP, адрес почты и т.п.)
+const MIN = 60 * 1000;
+const buckets = new Map(); // key -> { n, reset }
+function bucket(key, windowMs) {
+  const now = Date.now();
+  let b = buckets.get(key);
+  if (!b || b.reset < now) { b = { n: 0, reset: now + windowMs }; buckets.set(key, b); }
+  return b;
 }
+const blocked = (key, max, windowMs) => bucket(key, windowMs).n >= max;
+const bump = (key, windowMs) => { bucket(key, windowMs).n += 1; };
+const clearBucket = key => { buckets.delete(key); };
+// адрес посетителя: последний в X-Forwarded-For дописывает сам Render, подделать его нельзя
+function clientIp(req) {
+  const x = String(req.headers['x-forwarded-for'] || '').split(',').map(v => v.trim()).filter(Boolean);
+  return x.length ? x[x.length - 1] : (req.socket.remoteAddress || '?');
+}
+const isHttps = req => String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
 setInterval(() => {
   const now = Date.now();
   for (const [t, exp] of sessions) if (exp < now) sessions.delete(t);
-  for (const [ip, a] of tries) if (a.reset < now) tries.delete(ip);
+  for (const [k, b] of buckets) if (b.reset < now) buckets.delete(k);
 }, 60000).unref();
 
 function readBody(req, limit = 8192) {
@@ -109,8 +120,8 @@ function readBody(req, limit = 8192) {
   });
 }
 
-function setSessionCookie(res, token, maxAge) {
-  res.setHeader('Set-Cookie', COOKIE + '=' + token + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + maxAge);
+function setSessionCookie(req, res, token, maxAge) {
+  res.setHeader('Set-Cookie', COOKIE + '=' + token + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + maxAge + (isHttps(req) ? '; Secure' : ''));
 }
 
 const LOGIN_PAGE = `<!doctype html>
@@ -118,7 +129,7 @@ const LOGIN_PAGE = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Lootly — вход</title>
+<title>Lootly</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap">
@@ -140,13 +151,14 @@ button{font:inherit;cursor:pointer}
 .err{display:none;background:rgba(255,93,115,.12);border:1px solid rgba(255,93,115,.4);color:var(--bad);border-radius:10px;padding:9px 12px;font-size:14px;font-weight:600}
 .err.on{display:block}
 .hint{text-align:center;color:var(--muted);font-size:12px}
+.logo img{display:block;margin:0 auto;height:46px;width:auto;max-width:100%}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
 .shake{animation:shake .25s ease 2}
 </style>
 </head>
 <body>
 <form class="card" id="f" autocomplete="off">
-  <div class="logo">Lootly</div>
+  <div class="logo"><img src="/logo.png" alt="Lootly"></div>
   <div class="sub">Закрытая площадка. Введите пароль, чтобы войти.</div>
   <label>Пароль<input id="p" type="password" placeholder="••••••••" autofocus required></label>
   <div class="err" id="err">Неверный пароль. Попробуйте ещё раз.</div>
@@ -211,34 +223,43 @@ const server = http.createServer(async (req, res) => {
 
   if (url.pathname === '/healthz') { res.writeHead(200).end('ok'); return; }
 
+  if (url.pathname === '/logo.png') {
+    fs.readFile(path.join(PUBLIC, 'logo.png'), (err, buf) => {
+      if (err) { res.writeHead(404).end('not found'); return; }
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' }).end(buf);
+    });
+    return;
+  }
+
   // ===== вход по паролю =====
   if (url.pathname === '/api/login' && req.method === 'POST') {
-    const ip = req.socket.remoteAddress || '?';
+    const ip = clientIp(req);
+    const JSONH = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
+    // сначала лимит, потом проверка: верный пароль тоже не проходит, пока попытки исчерпаны
+    if (blocked('gate:' + ip, 10, 10 * MIN) || blocked('gate:*', 60, 10 * MIN)) { res.writeHead(429, JSONH).end('{"error":"too many attempts"}'); return; }
     let body = '';
-    try { body = await readBody(req); } catch { res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' }).end('{"error":"bad request"}'); return; }
+    try { body = await readBody(req); } catch { res.writeHead(400, JSONH).end('{"error":"bad request"}'); return; }
     let password = '';
     try { password = String(JSON.parse(body).password || ''); } catch { password = ''; }
-    const a = tries.get(ip) || { n: 0, reset: Date.now() + 10 * 60 * 1000 };
-    a.n += 1; tries.set(ip, a);
     const okPass = password.length > 0 && SITE_PASSWORD.length > 0 &&
       password.length === SITE_PASSWORD.length &&
       crypto.timingSafeEqual(Buffer.from(password), Buffer.from(SITE_PASSWORD));
     if (!okPass) {
-      if (tooManyTries(ip)) { res.writeHead(429, { 'Content-Type': 'application/json; charset=utf-8' }).end('{"error":"too many attempts"}'); return; }
-      res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8' }).end('{"error":"wrong password"}'); return;
+      bump('gate:' + ip, 10 * MIN); bump('gate:*', 10 * MIN);
+      res.writeHead(401, JSONH).end('{"error":"wrong password"}'); return;
     }
-    tries.delete(ip);
+    clearBucket('gate:' + ip);
     const token = crypto.randomBytes(32).toString('hex');
     sessions.set(token, Date.now() + WEEK);
-    setSessionCookie(res, token, WEEK / 1000);
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' }).end('{"ok":true}');
+    setSessionCookie(req, res, token, WEEK / 1000);
+    res.writeHead(200, JSONH).end('{"ok":true}');
     return;
   }
 
   if (url.pathname === '/api/logout' && req.method === 'POST') {
     const t = parseCookies(req)[COOKIE];
     if (t) sessions.delete(t);
-    setSessionCookie(res, '', 0);
+    setSessionCookie(req, res, '', 0);
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' }).end('{"ok":true}');
     return;
   }
@@ -257,6 +278,15 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }).end('{"error":"auth required"}');
+    return;
+  }
+
+  if (url.pathname.startsWith('/api/auth/')) {
+    try { await auth.handle(req, res, url, { clientIp, readBody, blocked, bump, clear: clearBucket }); }
+    catch (e) {
+      console.error('auth', e.message);
+      if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' }).end('{"error":"server","message":"Ошибка сервера"}');
+    }
     return;
   }
 
@@ -297,4 +327,4 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.listen(PORT, () => console.log('Lootly запущен на порту ' + PORT + ' (вход по паролю: ' + (process.env.SITE_PASSWORD ? 'переменная окружения SITE_PASSWORD' : 'значение переменной SITE_PASSWORD в server.js') + ')' + (KEY ? '' : ' (RAWG_KEY не задан: обложек игр не будет)') + (CLIENT ? '' : ' (BRANDFETCH_CLIENT_ID не задан: логотипов приложений не будет)')));
+server.listen(PORT, () => console.log('Lootly запущен на порту ' + PORT + ' (вход по паролю: ' + (process.env.SITE_PASSWORD ? 'переменная окружения SITE_PASSWORD' : 'значение переменной SITE_PASSWORD в server.js') + ')' + ' (почта: ' + (auth.mode === 'live' ? 'Resend подключён' : 'не подключена, коды подтверждения только в журнале') + ')' + (KEY ? '' : ' (RAWG_KEY не задан: обложек игр не будет)') + (CLIENT ? '' : ' (BRANDFETCH_CLIENT_ID не задан: логотипов приложений не будет)')));

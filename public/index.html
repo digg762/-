@@ -257,6 +257,22 @@ h1,h2,h3{margin:0;text-wrap:balance}
 .kv b{font-variant-numeric:tabular-nums;text-align:right}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:90;background:var(--surface-3);border:1px solid var(--line);border-radius:12px;padding:10px 16px;box-shadow:var(--shadow);max-width:calc(100% - 32px);font-weight:600}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+.logo{display:flex;align-items:center}
+.logo img{display:block;height:34px;width:auto}
+@media (max-width:760px){.logo img{height:28px}}
+.auth-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.auth-logo{display:block;height:34px;width:auto}
+.auth-tabs{display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:3px}
+.auth-tabs button{flex:1;border:0;background:none;padding:8px 12px;border-radius:9px;color:var(--muted);font-weight:600}
+.auth-tabs button[aria-selected="true"]{background:var(--surface-3);color:var(--fg)}
+.auth-err{background:color-mix(in srgb,var(--bad) 14%,transparent);border:1px solid color-mix(in srgb,var(--bad) 45%,transparent);color:var(--bad);border-radius:10px;padding:9px 12px;font-size:14px;font-weight:600;overflow-wrap:anywhere}
+.auth-note{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.form input.code-input{letter-spacing:.45em;text-align:center;font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+.linkbtn{border:0;background:none;color:var(--blue);padding:0;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.linkbtn[disabled]{color:var(--muted);text-decoration:none;cursor:default}
+.pw{position:relative;display:block}
+.pw input{width:100%;padding-right:84px}
+.pw button{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:13px}
 </style>
 </head>
 <body>
@@ -1040,6 +1056,7 @@ const AV = ['linear-gradient(135deg,#4da3ff,#9a5cff)', 'linear-gradient(135deg,#
 const SYM = { RUB: '₽', USD: '$', EUR: '€', KZT: '₸' };
 
 /* ===== Состояние экрана ===== */
+let ME = null;
 const R = { route: 'market', kind: 'game', gid: null, cat: null, group: 'all', q: '', gq: '', sort: 'pop', fv: {}, maxPrice: '', shown: 12, fopen: false, shopGenre: 'Все', shopPlat: '', shopSale: false, shopMax: '', shopSort: 'pop', shopQ: '', ptab: 'buys' };
 const view = () => $('#view');
 
@@ -1061,7 +1078,7 @@ function go(token) {
 function renderHeader() {
   const cartN = S.cart.length, onShop = R.route === 'shop', onMarket = R.route === 'market' || R.route === 'game';
   $('#hdr').innerHTML = `
-    <button class="logo grad-text" data-go="market" aria-label="Lootly, на главную">Lootly</button>
+    <button class="logo" data-go="market" aria-label="Lootly, на главную"><img src="/logo.png" alt="Lootly" onerror="this.replaceWith(document.createTextNode('Lootly'))"></button>
     <div class="nav-tabs">
       <button data-go="market" ${onMarket ? 'aria-current="page"' : ''}>Маркетплейс</button>
       <button data-go="shop" ${onShop ? 'aria-current="page"' : ''}>Магазин игр</button>
@@ -1074,7 +1091,7 @@ function renderHeader() {
       <span class="pill num hide-m" title="Баланс">${money(S.balance)}</span>
       <button class="icon-btn" data-act="cart" aria-label="Корзина">${ICON.cart}${cartN ? `<span class="badge">${cartN}</span>` : ''}</button>
       <button class="icon-btn hide-m" data-go="settings" aria-label="Настройки">${ICON.gear}</button>
-      <button class="avatar" data-go="profile" style="background:${AV[S.profile.color % AV.length]}" aria-label="Профиль">${esc((S.profile.name || 'И')[0].toUpperCase())}</button>
+      ${ME ? `<button class="avatar" data-go="profile" style="background:${AV[S.profile.color % AV.length]}" aria-label="Профиль">${esc((ME.name || 'И')[0].toUpperCase())}</button>` : `<button class="btn primary sm" data-act="auth">Войти</button>`}
     </div>`;
   const cur = R.route === 'game' ? 'market' : R.route;
   $('#bnav').innerHTML = [['market', 'Маркет', ICON.market], ['shop', 'Игры', ICON.game], ['profile', 'Профиль', ICON.user], ['settings', 'Настройки', ICON.gear]]
@@ -1226,6 +1243,7 @@ function closeLayer() { $('#layer').innerHTML = ''; document.body.style.overflow
 let toastT;
 function toast(msg) { const r = $('#toast-root'); r.innerHTML = `<div class="toast">${esc(msg)}</div>`; clearTimeout(toastT); toastT = setTimeout(() => { r.innerHTML = ''; }, 2600); }
 function buyModal(id) {
+  if (!ME) { openAuth('login', 'Войдите или зарегистрируйтесь, чтобы оформить покупку.'); return; }
   const o = getOffer(id), g = GAMES[o.gid], ok = S.balance >= o.price;
   openLayer(`<div class="modal-bg" data-close><div class="modal" role="dialog" aria-modal="true" aria-label="Оформление заказа">
     <h2>Оформление заказа</h2>
@@ -1305,6 +1323,10 @@ function cartDrawer() {
 /* ===== Профиль ===== */
 const COUNTRIES = ['Россия', 'Беларусь', 'Казахстан', 'Украина', 'Армения', 'Грузия', 'Другая'];
 function viewProfile() {
+  if (!ME) {
+    view().innerHTML = `<div class="empty"><h2 style="font-family:var(--f-display);font-size:20px;color:var(--fg);margin-bottom:8px">Профиль доступен после входа</h2><p style="margin:0 0 16px">Войдите или зарегистрируйтесь, чтобы покупать, видеть историю заказов и сохранять избранное.</p><button class="btn primary" data-act="auth">Войти или зарегистрироваться</button></div>`;
+    return;
+  }
   const p = S.profile, favs = S.favs.map(i => GAMES[i]).filter(Boolean);
   const tabs = [['buys', 'Покупки'], ['favs', 'Избранное'], ['sales', 'Продажи']];
   let body;
@@ -1313,11 +1335,11 @@ function viewProfile() {
   else body = p.seller ? `<div class="empty">Режим продавца включён. Создание лотов появится на следующем шаге разработки.<br><button class="btn sm" data-seller style="margin-top:12px">Выключить режим продавца</button></div>` : `<div class="empty">Вы не продаёте на Lootly.<br><button class="btn primary sm" data-seller style="margin-top:12px">Стать продавцом</button></div>`;
   view().innerHTML = `
     <div class="card profile-top"><span class="avatar lg" style="background:${AV[p.color % AV.length]}">${esc((p.name || 'И')[0].toUpperCase())}</span>
-      <div style="flex:1 1 220px;min-width:0"><h1>${esc(p.name || 'Игрок')}</h1><div class="muted" style="font-size:14px">${esc(p.country)} · ID L-${String(hash(p.name || 'x')).slice(0, 6)} · ${p.seller ? 'Продавец' : 'Покупатель'}</div>${p.bio ? `<p style="margin:8px 0 0;overflow-wrap:anywhere">${esc(p.bio)}</p>` : ''}</div>
+      <div style="flex:1 1 220px;min-width:0"><h1>${esc(p.name || 'Игрок')}</h1><div class="muted" style="font-size:14px">${esc(p.country)} · ${esc(ME.email)} · ${p.seller ? 'Продавец' : 'Покупатель'}</div>${p.bio ? `<p style="margin:8px 0 0;overflow-wrap:anywhere">${esc(p.bio)}</p>` : ''}</div>
       <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start"><div class="muted" style="font-size:13px">Баланс</div><div class="price num">${money(S.balance)}</div><button class="btn sm" data-topup>Пополнить на 1 000 ₽ (демо)</button></div></div>
     <div class="two"><div class="card" style="min-width:0"><div class="sub-tabs">${tabs.map(([k, l]) => `<button class="chip" data-ptab="${k}" aria-pressed="${R.ptab === k}">${l}</button>`).join('')}</div>${body}</div>
       <div class="card form" style="align-self:start"><h2 style="font-family:var(--f-display);font-size:17px;font-weight:700">Данные профиля</h2>
-        <label>Никнейм<input id="pf-name" maxlength="24" value="${esc(p.name)}"></label>
+        <label>Никнейм<input id="pf-name" maxlength="24" value="${esc(p.name)}" disabled></label>
         <label>О себе<textarea id="pf-bio" maxlength="160" placeholder="Коротко о себе или о том, что вы продаёте">${esc(p.bio)}</textarea></label>
         <label>Страна<select id="pf-country">${COUNTRIES.map(c => `<option ${c === p.country ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
         <div><div style="font-weight:600;font-size:14px;margin-bottom:8px">Цвет аватара</div><div class="swatches">${AV.map((a, i) => `<button class="sw" data-sw="${i}" style="background:${a}" aria-pressed="${p.color === i}" aria-label="Цвет ${i + 1}"></button>`).join('')}</div></div>
@@ -1333,6 +1355,7 @@ const tgl = (path, on, t, d) => `<div class="row"><div><div class="t">${t}</div>
 function viewSettings() {
   view().innerHTML = `<div class="hero-line"><h1>Настройки</h1></div>
   <div style="display:grid;gap:16px;margin-top:18px;max-width:760px">
+    ${accountCard()}
     <div class="card"><h2 style="font-family:var(--f-display);font-size:16px;margin-bottom:6px">Внешний вид и регион</h2>
       <div class="row"><div><div class="t">Тема</div><div class="d">Системная следует настройкам устройства</div></div><div class="chips">${[['system', 'Системная'], ['dark', 'Тёмная'], ['light', 'Светлая']].map(([k, l]) => `<button class="chip" data-theme-set="${k}" aria-pressed="${S.theme === k}">${l}</button>`).join('')}</div></div>
       <div class="row"><div><div class="t">Валюта цен</div><div class="d">Цены пересчитываются по примерному курсу</div></div><select class="sel" id="set-cur">${Object.keys(CUR).map(c => `<option ${c === S.currency ? 'selected' : ''}>${c}</option>`).join('')}</select></div></div>
@@ -1340,7 +1363,7 @@ function viewSettings() {
       ${tgl('notif.orders', S.notif.orders, 'Статусы заказов', 'Оплата, выдача, споры')}${tgl('notif.msgs', S.notif.msgs, 'Сообщения', 'Новые сообщения от продавцов и покупателей')}${tgl('notif.deals', S.notif.deals, 'Скидки и акции', 'Подборки раз в неделю')}</div>
     <div class="card"><h2 style="font-family:var(--f-display);font-size:16px;margin-bottom:6px">Безопасность и приватность</h2>
       ${tgl('twofa', S.twofa, 'Двухфакторная защита', 'Код при входе с нового устройства')}${tgl('showOnline', S.showOnline, 'Показывать статус «онлайн»', 'Видят покупатели и продавцы')}
-      <div class="row"><div><div class="t">Сеансы</div><div class="d">Завершить вход на всех устройствах</div></div><button class="btn sm" data-act="logoutall">Выйти везде</button></div></div>
+      <div class="row"><div><div class="t">Пароль на вход в сайт</div><div class="d">Закрыть сайт на этом устройстве, снова потребуется пароль</div></div><button class="btn sm" data-act="logoutall">Закрыть сайт</button></div></div>
     <div class="card"><h2 style="font-family:var(--f-display);font-size:16px;margin-bottom:6px">Платежи</h2>
       <div class="row"><div><div class="t">Способ вывода средств</div><div class="d">Для продавцов</div></div><select class="sel" id="set-payout">${[['card', 'Банковская карта'], ['sbp', 'СБП'], ['wallet', 'Электронный кошелёк']].map(([k, l]) => `<option value="${k}" ${S.payout === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
     <div class="card"><h2 style="font-family:var(--f-display);font-size:16px;margin-bottom:6px">Данные демо</h2>
@@ -1348,11 +1371,142 @@ function viewSettings() {
   </div>`;
 }
 
+/* ===== Аккаунт: вход, регистрация, код из письма ===== */
+let AUTH_MAIL = 'dev';
+let authTimer = null;
+const AUTH = { mode: 'login', note: '', err: '', busy: false, cool: 0, form: { name: '', email: '', password: '', code: '' } };
+const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+async function apiAuth(path, body) {
+  const r = await fetch(path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  let data = {}; try { data = await r.json(); } catch (e) {}
+  if (r.status === 401 && data.error === 'auth required') { location.reload(); throw new Error('gate'); }
+  return { ok: r.ok, status: r.status, data };
+}
+const mailMode = m => { if (m) AUTH_MAIL = m === 'sent' ? 'live' : 'dev'; };
+const fmtWait = s => s >= 90 ? 'через ' + Math.ceil(s / 60) + ' мин' : 'через ' + s + ' с';
+
+function accountCard() {
+  const h = '<h2 style="font-family:var(--f-display);font-size:16px;margin-bottom:6px">Аккаунт</h2>';
+  return ME
+    ? `<div class="card">${h}<div class="row"><div style="min-width:0"><div class="t" style="overflow-wrap:anywhere">${esc(ME.name)}</div><div class="d" style="overflow-wrap:anywhere">${esc(ME.email)}</div></div><div class="chips" style="justify-content:flex-end"><button class="btn sm" data-act="alogout">Выйти</button><button class="btn sm" data-act="alogoutall">Выйти везде</button></div></div></div>`
+    : `<div class="card">${h}<div class="row"><div><div class="t">Вы не вошли</div><div class="d">Войдите, чтобы покупать и видеть профиль</div></div><button class="btn primary sm" data-act="auth">Войти</button></div></div>`;
+}
+
+function openAuth(mode, note) { AUTH.mode = mode || 'login'; AUTH.note = note || ''; AUTH.err = ''; AUTH.busy = false; renderAuth(); focusAuth(); }
+function setAuthMode(m) { AUTH.mode = m; AUTH.err = ''; AUTH.note = ''; renderAuth(); }
+function focusAuth() {
+  setTimeout(() => {
+    const f = AUTH.form, m = AUTH.mode;
+    const el = m === 'verify' ? $('#af-code') : (m === 'register' && !f.name ? $('#af-name') : (!f.email ? $('#af-email') : $('#af-password')));
+    if (el) el.focus();
+  }, 30);
+}
+function renderAuth() {
+  const f = AUTH.form, m = AUTH.mode, v = k => esc(f[k] || '');
+  const title = m === 'verify' ? 'Подтвердите почту' : (m === 'register' ? 'Создать аккаунт' : 'Вход в аккаунт');
+  let fields;
+  if (m === 'verify') {
+    fields = `<p class="muted" style="margin:0">Мы отправили 6-значный код на <b style="color:var(--fg);overflow-wrap:anywhere">${esc(f.email)}</b>. Код действует 10 минут.</p>
+      ${AUTH_MAIL === 'dev' ? '<div class="auth-note">Почта пока не подключена, письмо не придёт. Код смотрите в журнале сервиса на Render (вкладка Logs).</div>' : ''}
+      <label>Код из письма<input class="code-input" id="af-code" data-af="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" value="${v('code')}"></label>`;
+  } else {
+    fields = (m === 'register' ? `<label>Никнейм<input id="af-name" data-af="name" maxlength="24" autocomplete="nickname" placeholder="Как вас называть" value="${v('name')}"></label>` : '')
+      + `<label>Почта<input id="af-email" data-af="email" type="email" autocomplete="email" placeholder="you@example.com" value="${v('email')}"></label>
+      <label>Пароль<span class="pw"><input id="af-password" data-af="password" type="password" autocomplete="${m === 'register' ? 'new-password' : 'current-password'}" placeholder="${m === 'register' ? 'От 8 символов' : 'Ваш пароль'}" value="${v('password')}"><button type="button" class="linkbtn" data-auth-eye>Показать</button></span></label>`;
+  }
+  const btn = AUTH.busy ? 'Подождите…' : (m === 'verify' ? 'Подтвердить' : (m === 'register' ? 'Зарегистрироваться' : 'Войти'));
+  openLayer(`<div class="modal-bg" data-close><div class="modal" role="dialog" aria-modal="true" aria-label="${title}">
+    <div class="auth-top"><img class="auth-logo" src="/logo.png" alt="Lootly"><button class="icon-btn" data-close-btn aria-label="Закрыть">${ICON.close}</button></div>
+    <h2>${title}</h2>
+    ${AUTH.note ? `<div class="auth-note">${esc(AUTH.note)}</div>` : ''}
+    ${m === 'verify' ? '' : `<div class="auth-tabs" role="tablist"><button type="button" role="tab" data-auth-mode="login" aria-selected="${m === 'login'}">Вход</button><button type="button" role="tab" data-auth-mode="register" aria-selected="${m === 'register'}">Регистрация</button></div>`}
+    <form class="form" id="authform" novalidate>${fields}
+      ${AUTH.err ? `<div class="auth-err" role="alert">${esc(AUTH.err)}</div>` : ''}
+      <button class="btn primary" type="submit" ${AUTH.busy ? 'disabled' : ''}>${btn}</button>
+    </form>
+    ${m === 'verify' ? `<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><button type="button" class="linkbtn" id="auth-resend" data-auth-resend ${AUTH.cool > 0 ? 'disabled' : ''}>${AUTH.cool > 0 ? 'Отправить ещё раз ' + fmtWait(AUTH.cool) : 'Отправить код ещё раз'}</button><button type="button" class="linkbtn" data-auth-back>Изменить почту</button></div>` : ''}
+  </div></div>`);
+}
+function startCool(sec) {
+  if (authTimer) clearInterval(authTimer);
+  AUTH.cool = sec;
+  authTimer = setInterval(() => {
+    AUTH.cool -= 1;
+    const b = $('#auth-resend');
+    if (AUTH.cool > 0) { if (b) { b.disabled = true; b.textContent = 'Отправить ещё раз ' + fmtWait(AUTH.cool); } }
+    else { clearInterval(authTimer); if (b) { b.disabled = false; b.textContent = 'Отправить код ещё раз'; } }
+  }, 1000);
+}
+function goVerify(note) { AUTH.mode = 'verify'; AUTH.note = note || ''; AUTH.err = ''; AUTH.form.code = ''; startCool(60); renderAuth(); focusAuth(); }
+function authDone(user) {
+  ME = user; S.profile.name = user.name; save();
+  AUTH.form = { name: '', email: '', password: '', code: '' }; AUTH.note = ''; AUTH.err = '';
+  if (authTimer) clearInterval(authTimer);
+  closeLayer(); render(); toast('Добро пожаловать, ' + user.name);
+}
+async function submitAuth() {
+  if (AUTH.busy) return;
+  const f = AUTH.form, m = AUTH.mode;
+  const stop = msg => { AUTH.err = msg; renderAuth(); focusAuth(); };
+  if (m === 'verify') { if (!/^\d{6}$/.test(f.code.trim())) return stop('Введите 6 цифр из письма.'); }
+  else {
+    if (m === 'register' && f.name.trim().length < 2) return stop('Никнейм: от 2 символов.');
+    if (!EMAIL_OK.test(f.email.trim())) return stop('Проверьте адрес почты.');
+    if (m === 'register' && f.password.length < 8) return stop('Пароль: от 8 символов.');
+    if (m === 'login' && !f.password) return stop('Введите пароль.');
+  }
+  AUTH.busy = true; AUTH.err = ''; renderAuth();
+  try {
+    const email = f.email.trim();
+    const r = m === 'register' ? await apiAuth('/api/auth/register', { name: f.name.trim(), email, password: f.password })
+      : m === 'login' ? await apiAuth('/api/auth/login', { email, password: f.password })
+      : await apiAuth('/api/auth/verify', { email, code: f.code.trim() });
+    AUTH.busy = false;
+    if (r.ok && r.data.user) { authDone(r.data.user); return; }
+    if (r.ok && r.data.step === 'verify') { mailMode(r.data.mail); goVerify(); return; }
+    if (r.status === 403 && r.data.error === 'not_verified') { mailMode(r.data.mail); goVerify(r.data.message); return; }
+    stop(r.data.message || 'Что-то пошло не так. Попробуйте ещё раз.');
+  } catch (e) { AUTH.busy = false; stop('Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.'); }
+}
+async function resendCode() {
+  if (AUTH.cool > 0 || AUTH.busy) return;
+  AUTH.err = ''; AUTH.note = '';
+  try {
+    const r = await apiAuth('/api/auth/resend', { email: AUTH.form.email.trim() });
+    if (r.ok) { mailMode(r.data.mail); AUTH.note = 'Новый код отправлен.'; startCool(60); }
+    else { AUTH.err = r.data.message || 'Не удалось отправить код.'; if (r.data.wait) startCool(r.data.wait); }
+  } catch (e) { AUTH.err = 'Нет связи с сервером.'; }
+  renderAuth();
+}
+async function doLogout(all) {
+  try { await apiAuth(all ? '/api/auth/logout-all' : '/api/auth/logout', {}); } catch (e) {}
+  ME = null; render(); toast(all ? 'Вы вышли на всех устройствах' : 'Вы вышли из аккаунта');
+}
+async function loadMe() {
+  let ok = false;
+  try {
+    const r = await fetch('/api/auth/me');
+    if (r.status === 401) { location.reload(); return; }
+    const j = await r.json();
+    ME = j.user || null; AUTH_MAIL = j.mail === 'live' ? 'live' : 'dev'; ok = true;
+    if (ME) { S.profile.name = ME.name; save(); }
+  } catch (e) {}
+  render();
+  if (ok && !ME) {
+    try { if (!sessionStorage.getItem('lootly-auth-seen')) { sessionStorage.setItem('lootly-auth-seen', '1'); openAuth('register'); } } catch (e) {}
+  }
+}
+
 /* ===== События ===== */
 document.addEventListener('click', e => {
   const t = e.target, q = s => t.closest(s);
   if (!q('.search')) { const p = $('#spop'); if (p) p.hidden = true; }
   let el;
+  if ((el = q('[data-auth-mode]'))) { setAuthMode(el.dataset.authMode); focusAuth(); return; }
+  if (q('[data-auth-resend]')) { resendCode(); return; }
+  if (q('[data-auth-back]')) { if (authTimer) clearInterval(authTimer); AUTH.mode = 'register'; AUTH.err = ''; AUTH.note = ''; renderAuth(); focusAuth(); return; }
+  if ((el = q('[data-auth-eye]'))) { const i = $('#af-password'); if (i) { const show = i.type === 'password'; i.type = show ? 'text' : 'password'; el.textContent = show ? 'Скрыть' : 'Показать'; } return; }
   if ((el = q('[data-kind]'))) { R.kind = el.dataset.kind; R.group = 'all'; R.q = ''; const gs = $('#gsearch'); if (gs) gs.value = ''; viewMarket(); return; }
   if ((el = q('[data-go]'))) { R.q = ''; if (el.dataset.kindBack) R.kind = el.dataset.kindBack; go(el.dataset.go); return; }
   if (t.matches('[data-close]') || q('[data-close-btn]')) { closeLayer(); return; }
@@ -1368,7 +1522,10 @@ document.addEventListener('click', e => {
   if (q('[data-topup]')) { S.balance += 1000; save(); closeLayer(); render(); toast('Баланс пополнен на 1 000 ₽ (демо)'); return; }
   if ((el = q('[data-act]'))) {
     const a = el.dataset.act;
-    if (a === 'cart') cartDrawer();
+    if (a === 'auth') openAuth('login');
+    else if (a === 'alogout') doLogout(false);
+    else if (a === 'alogoutall') doLogout(true);
+    else if (a === 'cart') cartDrawer();
     else if (a === 'ftoggle') { R.fopen = !R.fopen; $('#fpanel').setAttribute('data-open', R.fopen); }
     else if (a === 'freset') { R.fv = {}; R.maxPrice = ''; R.shown = 12; renderFilters(); renderOffers(); }
     else if (a === 'more') { R.shown += 12; renderOffers(); }
@@ -1380,6 +1537,7 @@ document.addEventListener('click', e => {
   if ((el = q('[data-cartadd]'))) { const id = +el.dataset.cartadd; if (!S.cart.includes(id)) S.cart.push(id); save(); closeLayer(); renderHeader(); toast('Добавлено в корзину'); return; }
   if ((el = q('[data-cartrm]'))) { S.cart = S.cart.filter(i => i !== +el.dataset.cartrm); save(); renderHeader(); cartDrawer(); return; }
   if (q('[data-checkout]')) {
+    if (!ME) { openAuth('login', 'Войдите или зарегистрируйтесь, чтобы оформить заказ.'); return; }
     const items = S.cart.map(i => SHOP[i]), total = items.reduce((s, x) => s + shopPrice(x), 0); if (S.balance < total) return;
     S.balance -= total; const d = new Date().toLocaleDateString('ru-RU'); items.forEach(x => S.purchases.unshift({ t: x.name, p: shopPrice(x), d, k: 'shop' })); S.cart = []; save(); closeLayer(); render(); toast('Заказ оформлен (демо)'); return;
   }
@@ -1400,6 +1558,7 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('input', e => {
   const t = e.target;
+  if (t.dataset && t.dataset.af) { if (t.id === 'af-code') t.value = t.value.replace(/\D/g, '').slice(0, 6); AUTH.form[t.dataset.af] = t.value; return; }
   if (t.id === 'gsearch') {
     R.q = t.value;
     if (R.route === 'market' || R.route === 'game') suggest(R.q); else { const p = $('#spop'); if (p) p.hidden = true; }
@@ -1417,6 +1576,7 @@ document.addEventListener('change', e => {
   else if (t.id === 'set-cur') { S.currency = t.value; save(); render(); toast('Валюта изменена'); }
   else if (t.id === 'set-payout') { S.payout = t.value; save(); toast('Сохранено'); }
 });
+document.addEventListener('submit', e => { if (e.target.id === 'authform') { e.preventDefault(); submitAuth(); } });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLayer(); const p = $('#spop'); if (p) p.hidden = true; } });
 window.addEventListener('popstate', () => apply(location.hash));
 window.addEventListener('hashchange', () => apply(location.hash));
@@ -1424,6 +1584,7 @@ window.addEventListener('hashchange', () => apply(location.hash));
 /* ===== Старт ===== */
 applyTheme();
 apply(location.hash);
+loadMe();
 try { fetch('covers.json').then(r => r.ok ? r.json() : {}).then(j => { if (j && Object.keys(j).length) { COVERS = j; render(); } }).catch(() => {}); } catch (e) {}
 </script>
 
