@@ -1,53 +1,56 @@
-'use strict';
-// Lootly: регистрация, вход и подтверждение почты кодом.
+// Lutrix Game: регистрация, вход, подтверждение почты кодом и восстановление пароля.
 //
-// Как это работает сейчас:
-//  - пользователи хранятся в файле data/users.json (на бесплатном Render файл стирается
-//    при каждом перезапуске и после 15 минут без посетителей, это временное решение,
-//    дальше нужна база данных);
-//  - письма отправляет Resend, если задана переменная RESEND_API_KEY;
-//    без неё код подтверждения печатается только в журнал (Logs) на Render.
-const fs = require('fs');
+//  - Пользователи и входы хранятся в Postgres, если задана переменная DATABASE_URL
+//    (см. store.js). Без неё: в файле data/users.json, а на бесплатном Render он
+//    стирается при каждом перезапуске.
+//  - Письма отправляет Resend, если задана переменная RESEND_API_KEY;
+//    без неё коды печатаются только в журнал (Logs) на Render.
 const path = require('path');
 const crypto = require('crypto');
 const { promisify } = require('util');
+const { createStore, newMem } = require('./store');
 const scrypt = promisify(crypto.scrypt);
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
-const DB_FILE = path.join(DATA_DIR, 'users.json');
 const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim();
-const MAIL_FROM = (process.env.MAIL_FROM || 'Lootly <onboarding@resend.dev>').trim();
+const MAIL_FROM = (process.env.MAIL_FROM || 'Lutrix Game <onboarding@resend.dev>').trim();
 const RESEND_BASE = process.env.RESEND_BASE || 'https://api.resend.com';
 
 const MIN = 60 * 1000, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const CODE_TTL = 10 * MIN;          // код живёт 10 минут
 const RESEND_GAP = 60 * 1000;       // новый код не чаще раза в минуту
-const MAX_SENDS_PER_HOUR = 5;       // и не больше 5 писем в час на адрес
+const MAX_SENDS_PER_HOUR = 5;       // и не больше 5 писем в час на адрес (отдельно для регистрации и для сброса пароля)
 const MAX_CODE_TRIES = 5;           // 5 неверных вводов, потом нужен новый код
 const SESSION_TTL = 30 * DAY;
 const MAX_USERS = 5000;
-const COOKIE = 'lootly_user';
+const COOKIE = 'lutrix_user';
 
 /* ===== хранилище ===== */
-let db = { users: {} };
-try { const j = JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); if (j && j.users) db = j; } catch { /* файла ещё нет */ }
+const { store, note: storeNote } = createStore(DATA_DIR);
+const mem = newMem(); // users, sessions (хэш токена -> { uid, exp }), offers, orders, ledger, meta
 const byEmail = new Map();
-for (const u of Object.values(db.users)) byEmail.set(u.email, u);
+let ready = false;
 
-function flush() {
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    const tmp = DB_FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(db));
-    fs.renameSync(tmp, DB_FILE);
-  } catch (e) { console.error('Не удалось сохранить пользователей:', e.message); }
+async function boot() {
+  for (;;) {
+    try {
+      await store.init(mem);
+      byEmail.clear();
+      for (const u of Object.values(mem.users)) byEmail.set(u.email, u);
+      ready = true;
+      console.log(`Хранилище готово: ${store.kind}, пользователей: ${byEmail.size}`);
+      return;
+    } catch (e) {
+      console.error('База недоступна, пробуем снова через 5 секунд:', e.message);
+      await new Promise(r => setTimeout(r, 5000));
+    }
+  }
 }
-let timer = null;
-function persist() { if (!timer) timer = setTimeout(() => { timer = null; flush(); }, 300); }
-process.on('SIGTERM', () => { if (timer) { clearTimeout(timer); flush(); } process.exit(0); });
+const booting = boot();
+const quiet = e => console.error('Фоновая запись не удалась:', e.message);
 
 /* ===== сессии ===== */
-const sessions = new Map(); // токен -> { uid, exp }
+const sha = v => crypto.createHash('sha256').update(v).digest('hex');
 function parseCookies(req) {
   const out = {};
   for (const part of String(req.headers.cookie || '').split(';')) {
@@ -63,26 +66,33 @@ function setCookie(req, res, token, maxAgeSec) {
 function userFromReq(req) {
   const t = parseCookies(req)[COOKIE];
   if (!t || !/^[a-f0-9]{64}$/.test(t)) return null;
-  const s = sessions.get(t);
-  if (!s || s.exp < Date.now()) { sessions.delete(t); return null; }
-  const u = db.users[s.uid];
+  const h = sha(t), s = mem.sessions.get(h);
+  if (!s || s.exp < Date.now()) { if (s) { mem.sessions.delete(h); store.touchSession(h).catch(quiet); } return null; }
+  const u = mem.users[s.uid];
   return u && u.verified ? u : null;
 }
-function startSession(req, res, u) {
-  const token = crypto.randomBytes(32).toString('hex');
-  sessions.set(token, { uid: u.id, exp: Date.now() + SESSION_TTL });
+async function startSession(req, res, u) {
+  const token = crypto.randomBytes(32).toString('hex'), h = sha(token);
+  mem.sessions.set(h, { uid: u.id, exp: Date.now() + SESSION_TTL });
+  // если база не отвечает, вход всё равно работает: сессия лежит в памяти и допишется в базу сама
+  try { await store.touchSession(h); }
+  catch (e) { if (!e.dbError) { mem.sessions.delete(h); throw e; } }
   setCookie(req, res, token, SESSION_TTL / 1000);
 }
-const pub = u => ({ id: u.id, email: u.email, name: u.name });
+async function dropSessions(uid) {
+  const hs = [];
+  for (const [h, s] of mem.sessions) if (s.uid === uid) { mem.sessions.delete(h); hs.push(h); }
+  for (const h of hs) await store.touchSession(h);
+}
+const pub = u => ({ id: u.id, email: u.email, name: u.name, balance: u.bal || 0, owner: !!u.owner, av: u.avv || 0 });
 
 setInterval(() => {
+  if (!ready) return;
   const now = Date.now();
-  for (const [t, s] of sessions) if (s.exp < now) sessions.delete(t);
-  let removed = false;
-  for (const u of Object.values(db.users)) {
-    if (!u.verified && now - u.createdAt > DAY) { delete db.users[u.id]; byEmail.delete(u.email); removed = true; }
+  for (const [h, s] of mem.sessions) if (s.exp < now) { mem.sessions.delete(h); store.touchSession(h).catch(quiet); }
+  for (const u of Object.values(mem.users)) {
+    if (!u.verified && now - u.createdAt > DAY) { delete mem.users[u.id]; byEmail.delete(u.email); store.touchUser(u.id).catch(quiet); }
   }
-  if (removed) persist();
 }, 10 * MIN).unref();
 
 /* ===== пароли и коды ===== */
@@ -98,24 +108,42 @@ async function checkPassword(pw, stored) {
   const want = Buffer.from(h, 'hex');
   return want.length === got.length && crypto.timingSafeEqual(want, got);
 }
-const hashCode = (uid, code) => crypto.createHash('sha256').update(uid + ':' + code).digest('hex');
-function codeMatches(u, code) {
-  const a = Buffer.from(hashCode(u.id, code), 'hex'), b = Buffer.from(u.code.hash, 'hex');
+// два вида кодов: 'code' (подтверждение почты) и 'reset' (смена пароля); хранятся отдельно
+const KINDS = {
+  code:  { slot: 'code',  sends: 'sends',  salt: '' },
+  reset: { slot: 'reset', sends: 'rsends', salt: 'reset:' }
+};
+const hashCode = (kind, uid, code) => crypto.createHash('sha256').update(KINDS[kind].salt + uid + ':' + code).digest('hex');
+function codeMatches(u, kind, code) {
+  const a = Buffer.from(hashCode(kind, u.id, code), 'hex'), b = Buffer.from(u[KINDS[kind].slot].hash, 'hex');
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 /* ===== письма ===== */
-async function sendCodeMail(email, code) {
+const MAILS = {
+  code: {
+    subject: 'Код подтверждения Lutrix Game', title: 'Ваш код подтверждения:',
+    tail: 'Если вы не регистрировались на Lutrix Game, просто проигнорируйте это письмо.',
+    dev: 'Код подтверждения'
+  },
+  reset: {
+    subject: 'Восстановление пароля Lutrix Game', title: 'Код для смены пароля:',
+    tail: 'Если вы не просили сменить пароль, просто проигнорируйте это письмо: ваш пароль останется прежним.',
+    dev: 'Код восстановления пароля'
+  }
+};
+async function sendMail(kind, email, code) {
+  const m = MAILS[kind];
   if (!RESEND_KEY) {
-    console.log(`[ПОЧТА НЕ ПОДКЛЮЧЕНА] Код подтверждения для ${email}: ${code}`);
+    console.log(`[ПОЧТА НЕ ПОДКЛЮЧЕНА] ${m.dev} для ${email}: ${code}`);
     return 'dev';
   }
-  const text = `Ваш код подтверждения Lootly: ${code}\nОн действует 10 минут. Если вы не регистрировались на Lootly, просто проигнорируйте это письмо.`;
-  const html = `<div style="font-family:Arial,sans-serif;max-width:420px;margin:0 auto;padding:24px"><h2 style="margin:0 0 12px">Lootly</h2><p>Ваш код подтверждения:</p><p style="font-size:32px;letter-spacing:8px;font-weight:700;margin:12px 0">${code}</p><p style="color:#666;font-size:14px">Код действует 10 минут. Если вы не регистрировались на Lootly, просто проигнорируйте это письмо.</p></div>`;
+  const text = `${m.title} ${code}\nОн действует 10 минут. ${m.tail}`;
+  const html = `<div style="font-family:Arial,sans-serif;max-width:420px;margin:0 auto;padding:24px"><h2 style="margin:0 0 12px">Lutrix Game</h2><p>${m.title}</p><p style="font-size:32px;letter-spacing:8px;font-weight:700;margin:12px 0">${code}</p><p style="color:#666;font-size:14px">Код действует 10 минут. ${m.tail}</p></div>`;
   const r = await fetch(RESEND_BASE + '/emails', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: MAIL_FROM, to: [email], subject: 'Код подтверждения Lootly', html, text }),
+    body: JSON.stringify({ from: MAIL_FROM, to: [email], subject: m.subject, html, text }),
     signal: AbortSignal.timeout(15000)
   });
   if (!r.ok) {
@@ -125,21 +153,23 @@ async function sendCodeMail(email, code) {
   return 'sent';
 }
 
-function canSend(u) {
-  const now = Date.now();
-  u.sends = (u.sends || []).filter(t => now - t < HOUR);
-  if (u.code && now - u.code.sentAt < RESEND_GAP) return { ok: false, wait: Math.ceil((RESEND_GAP - (now - u.code.sentAt)) / 1000) };
-  if (u.sends.length >= MAX_SENDS_PER_HOUR) return { ok: false, wait: Math.ceil((HOUR - (now - u.sends[0])) / 1000) };
+function canSend(u, kind) {
+  const { slot, sends } = KINDS[kind], now = Date.now();
+  u[sends] = (u[sends] || []).filter(t => now - t < HOUR);
+  if (u[slot] && now - u[slot].sentAt < RESEND_GAP) return { ok: false, wait: Math.ceil((RESEND_GAP - (now - u[slot].sentAt)) / 1000) };
+  if (u[sends].length >= MAX_SENDS_PER_HOUR) return { ok: false, wait: Math.ceil((HOUR - (now - u[sends][0])) / 1000) };
   return { ok: true };
 }
-async function issueCode(u) {
+async function issueCode(u, kind) {
+  const { slot, sends } = KINDS[kind];
   const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
-  u.code = { hash: hashCode(u.id, code), exp: Date.now() + CODE_TTL, tries: 0, sentAt: Date.now() };
-  u.sends = u.sends || [];
-  u.sends.push(Date.now());
-  persist();
-  try { return await sendCodeMail(u.email, code); }
-  catch (e) { u.code.sentAt = 0; u.sends.pop(); persist(); throw e; } // при сбое можно сразу попробовать снова
+  u[slot] = { hash: hashCode(kind, u.id, code), exp: Date.now() + CODE_TTL, tries: 0, sentAt: Date.now() };
+  u[sends] = u[sends] || [];
+  u[sends].push(Date.now());
+  const undo = () => { if (u[slot]) u[slot].sentAt = 0; u[sends].pop(); }; // при сбое можно сразу попробовать снова
+  try { await store.touchUser(u.id); } catch (e) { undo(); throw e; }
+  try { return await sendMail(kind, u.email, code); }
+  catch (e) { undo(); store.touchUser(u.id).catch(quiet); throw e; }
 }
 const waitText = s => s >= 90 ? `Подождите ${Math.ceil(s / 60)} мин.` : `Подождите ${s} с.`;
 
@@ -148,6 +178,7 @@ function send(res, status, obj) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }).end(JSON.stringify(obj));
 }
 const fail = (res, status, error, message, extra) => send(res, status, Object.assign({ error, message }, extra || {}));
+const mailFail = (res, e) => { console.error('Не удалось отправить письмо:', e.message); return fail(res, 502, 'mail_failed', 'Не удалось отправить письмо. Попробуйте ещё раз чуть позже.'); };
 
 async function readJson(req, ctx) {
   if (!String(req.headers['content-type'] || '').toLowerCase().startsWith('application/json')) return { bad: 415 };
@@ -156,24 +187,36 @@ async function readJson(req, ctx) {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const NAME_RE = /^[\p{L}\p{N} ._-]{2,24}$/u;
 const normEmail = v => String(v || '').trim().toLowerCase();
+const ROUTES = ['register', 'verify', 'resend', 'login', 'logout', 'logout-all', 'forgot', 'reset'];
 
 async function handle(req, res, url, ctx) {
-  const route = url.pathname.slice('/api/auth/'.length);
-  const ip = ctx.clientIp(req);
+  try { return await route(req, res, url, ctx); }
+  catch (e) {
+    if (e && e.dbError && !res.headersSent) return fail(res, 503, 'db_down', 'База данных временно недоступна. Попробуйте через минуту.');
+    throw e;
+  }
+}
 
-  if (route === 'me') {
+async function route(req, res, url, ctx) {
+  const name_ = url.pathname.slice('/api/auth/'.length);
+  const ip = ctx.clientIp(req);
+  if (name_ !== 'me' && !ROUTES.includes(name_)) return fail(res, 404, 'not_found', 'Не найдено');
+  if (!ready) return fail(res, 503, 'db_down', 'Сервис запускается, попробуйте через несколько секунд.');
+
+  if (name_ === 'me') {
     if (req.method !== 'GET') return fail(res, 405, 'method', 'Метод не поддерживается');
     const u = userFromReq(req);
     return send(res, 200, { user: u ? pub(u) : null, mail: RESEND_KEY ? 'live' : 'dev' });
   }
-  if (!['register', 'verify', 'resend', 'login', 'logout', 'logout-all'].includes(route)) return fail(res, 404, 'not_found', 'Не найдено');
   if (req.method !== 'POST') return fail(res, 405, 'method', 'Метод не поддерживается');
 
-  if (route === 'logout' || route === 'logout-all') {
+  if (name_ === 'logout' || name_ === 'logout-all') {
     const u = userFromReq(req);
     const t = parseCookies(req)[COOKIE];
-    if (route === 'logout-all' && u) { for (const [k, s] of sessions) if (s.uid === u.id) sessions.delete(k); }
-    else if (t) sessions.delete(t);
+    try {
+      if (name_ === 'logout-all' && u) await dropSessions(u.id);
+      else if (t && /^[a-f0-9]{64}$/.test(t)) { const h = sha(t); mem.sessions.delete(h); await store.touchSession(h); }
+    } catch (e) { console.error('Выход: запись не удалась:', e.message); }
     setCookie(req, res, '', 0);
     return send(res, 200, { ok: true });
   }
@@ -183,7 +226,7 @@ async function handle(req, res, url, ctx) {
   const b = parsed.body;
   const email = normEmail(b.email);
 
-  if (route === 'register') {
+  if (name_ === 'register') {
     if (ctx.blocked('reg:' + ip, 10, HOUR)) return fail(res, 429, 'too_many', 'Слишком много попыток регистрации. Попробуйте позже.');
     ctx.bump('reg:' + ip, HOUR);
     const name = String(b.name || '').trim();
@@ -194,19 +237,19 @@ async function handle(req, res, url, ctx) {
     if (password.toLowerCase() === email) return fail(res, 400, 'bad_password', 'Пароль не должен совпадать с почтой.');
     let u = byEmail.get(email);
     if (u && u.verified) return fail(res, 409, 'exists', 'Эта почта уже зарегистрирована. Нажмите «Войти».');
-    if (!u && Object.keys(db.users).length >= MAX_USERS) return fail(res, 503, 'full', 'Регистрация временно закрыта.');
-    if (u) { const c = canSend(u); if (!c.ok) return fail(res, 429, 'wait', 'Код уже отправлен. ' + waitText(c.wait), { wait: c.wait }); }
+    if (!u && byEmail.size >= MAX_USERS) return fail(res, 503, 'full', 'Регистрация временно закрыта.');
+    if (u) { const c = canSend(u, 'code'); if (!c.ok) return fail(res, 429, 'wait', 'Код уже отправлен. ' + waitText(c.wait), { wait: c.wait }); }
     const hash = await hashPassword(password);
     if (!u) {
-      u = { id: crypto.randomBytes(8).toString('hex'), email, createdAt: Date.now(), verified: false, sends: [] };
-      db.users[u.id] = u; byEmail.set(email, u);
+      u = { id: crypto.randomBytes(8).toString('hex'), email, createdAt: Date.now(), verified: false, sends: [], bal: 0 };
+      mem.users[u.id] = u; byEmail.set(email, u);
     }
     u.name = name; u.hash = hash;
-    try { const mail = await issueCode(u); return send(res, 200, { ok: true, step: 'verify', mail }); }
-    catch (e) { console.error('Не удалось отправить письмо:', e.message); return fail(res, 502, 'mail_failed', 'Не удалось отправить письмо. Попробуйте ещё раз чуть позже.'); }
+    try { const mail = await issueCode(u, 'code'); return send(res, 200, { ok: true, step: 'verify', mail }); }
+    catch (e) { if (e.dbError) throw e; return mailFail(res, e); }
   }
 
-  if (route === 'verify') {
+  if (name_ === 'verify') {
     if (ctx.blocked('ver:' + ip, 20, 10 * MIN)) return fail(res, 429, 'too_many', 'Слишком много попыток. Подождите 10 минут.');
     ctx.bump('ver:' + ip, 10 * MIN);
     const code = String(b.code || '').trim();
@@ -214,24 +257,25 @@ async function handle(req, res, url, ctx) {
     const bad = () => fail(res, 400, 'bad_code', 'Код неверный или устарел. Запросите новый.');
     if (!u || u.verified || !u.code || !/^\d{6}$/.test(code)) return bad();
     if (u.code.exp < Date.now() || u.code.tries >= MAX_CODE_TRIES) return bad();
-    if (!codeMatches(u, code)) { u.code.tries += 1; persist(); return bad(); }
-    u.verified = true; u.code = null; u.verifiedAt = Date.now(); persist();
-    startSession(req, res, u);
+    if (!codeMatches(u, 'code', code)) { u.code.tries += 1; await store.touchUser(u.id); return bad(); }
+    u.verified = true; u.code = null; u.verifiedAt = Date.now();
+    await store.touchUser(u.id);
+    await startSession(req, res, u);
     return send(res, 200, { ok: true, user: pub(u) });
   }
 
-  if (route === 'resend') {
+  if (name_ === 'resend') {
     if (ctx.blocked('rs:' + ip, 10, HOUR)) return fail(res, 429, 'too_many', 'Слишком много запросов. Попробуйте позже.');
     ctx.bump('rs:' + ip, HOUR);
     const u = byEmail.get(email);
     if (!u || u.verified) return send(res, 200, { ok: true }); // не раскрываем, есть ли такой адрес
-    const c = canSend(u);
+    const c = canSend(u, 'code');
     if (!c.ok) return fail(res, 429, 'wait', waitText(c.wait), { wait: c.wait });
-    try { const mail = await issueCode(u); return send(res, 200, { ok: true, mail }); }
-    catch (e) { console.error('Не удалось отправить письмо:', e.message); return fail(res, 502, 'mail_failed', 'Не удалось отправить письмо. Попробуйте ещё раз чуть позже.'); }
+    try { const mail = await issueCode(u, 'code'); return send(res, 200, { ok: true, mail }); }
+    catch (e) { if (e.dbError) throw e; return mailFail(res, e); }
   }
 
-  if (route === 'login') {
+  if (name_ === 'login') {
     const k1 = 'login:' + ip, k2 = 'login:' + ip + ':' + email;
     if (ctx.blocked(k1, 30, 10 * MIN) || ctx.blocked(k2, 8, 10 * MIN)) return fail(res, 429, 'too_many', 'Слишком много попыток входа. Подождите 10 минут.');
     const password = String(b.password || '').slice(0, 128);
@@ -242,14 +286,50 @@ async function handle(req, res, url, ctx) {
     if (!ok) { ctx.bump(k1, 10 * MIN); ctx.bump(k2, 10 * MIN); return fail(res, 401, 'bad_login', 'Неверная почта или пароль.'); }
     ctx.clear(k2);
     if (!u.verified) {
-      const c = canSend(u);
+      const c = canSend(u, 'code');
       if (!c.ok) return fail(res, 403, 'not_verified', 'Почта не подтверждена. Введите последний присланный код. ' + waitText(c.wait));
-      try { const mail = await issueCode(u); return fail(res, 403, 'not_verified', 'Почта не подтверждена. Мы отправили новый код.', { mail }); }
-      catch (e) { console.error('Не удалось отправить письмо:', e.message); return fail(res, 502, 'mail_failed', 'Не удалось отправить письмо. Попробуйте ещё раз чуть позже.'); }
+      try { const mail = await issueCode(u, 'code'); return fail(res, 403, 'not_verified', 'Почта не подтверждена. Мы отправили новый код.', { mail }); }
+      catch (e) { if (e.dbError) throw e; return mailFail(res, e); }
     }
-    startSession(req, res, u);
+    await startSession(req, res, u);
+    return send(res, 200, { ok: true, user: pub(u) });
+  }
+
+  if (name_ === 'forgot') {
+    if (ctx.blocked('fg:' + ip, 10, HOUR)) return fail(res, 429, 'too_many', 'Слишком много запросов. Попробуйте позже.');
+    ctx.bump('fg:' + ip, HOUR);
+    if (email.length > 254 || !EMAIL_RE.test(email)) return fail(res, 400, 'bad_email', 'Проверьте адрес почты.');
+    // ответ всегда одинаковый и сразу: так по нему не узнать, зарегистрирована ли почта
+    send(res, 200, { ok: true, mail: RESEND_KEY ? 'sent' : 'dev' });
+    const u = byEmail.get(email);
+    if (u && u.verified && canSend(u, 'reset').ok) issueCode(u, 'reset').catch(e => console.error('Письмо для сброса пароля не ушло:', e.message));
+    return;
+  }
+
+  if (name_ === 'reset') {
+    if (ctx.blocked('rst:' + ip, 20, 10 * MIN)) return fail(res, 429, 'too_many', 'Слишком много попыток. Подождите 10 минут.');
+    ctx.bump('rst:' + ip, 10 * MIN);
+    const code = String(b.code || '').trim();
+    const password = String(b.password || '');
+    if (password.length < 8 || password.length > 128) return fail(res, 400, 'bad_password', 'Пароль: от 8 до 128 символов.');
+    if (password.toLowerCase() === email) return fail(res, 400, 'bad_password', 'Пароль не должен совпадать с почтой.');
+    const u = byEmail.get(email);
+    const bad = () => fail(res, 400, 'bad_code', 'Код неверный или устарел. Запросите новый.');
+    if (!u || !u.verified || !u.reset || !/^\d{6}$/.test(code)) return bad();
+    if (u.reset.exp < Date.now() || u.reset.tries >= MAX_CODE_TRIES) return bad();
+    if (!codeMatches(u, 'reset', code)) { u.reset.tries += 1; await store.touchUser(u.id); return bad(); }
+    u.reset = null; // код одноразовый, второй такой же запрос уже не пройдёт
+    u.hash = await hashPassword(password);
+    u.passwordChangedAt = Date.now();
+    await dropSessions(u.id);               // все старые входы на других устройствах закрываются
+    await store.touchUser(u.id);
+    await startSession(req, res, u);
     return send(res, 200, { ok: true, user: pub(u) });
   }
 }
 
-module.exports = { handle, mode: RESEND_KEY ? 'live' : 'dev', dataFile: DB_FILE };
+module.exports = {
+  handle, mode: RESEND_KEY ? 'live' : 'dev', storeNote,
+  // внутренности для market.js
+  core: { mem, store, byEmail, userFromReq, pub, isReady: () => ready, parseCookies }
+};

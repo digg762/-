@@ -1,10 +1,11 @@
 'use strict';
-// Lootly: статический сайт + прокси обложек RAWG. Ключ живёт только в переменной окружения RAWG_KEY.
+// Lutrix Game: статический сайт + прокси обложек RAWG. Ключ живёт только в переменной окружения RAWG_KEY.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const auth = require('./auth');
+const market = require('./market');
 
 /* ============================================================
    ПАРОЛЬ НА ВХОД НА САЙТ
@@ -15,7 +16,7 @@ const auth = require('./auth');
    Пока пароль не введён, сайт никому не открывается:
    все страницы и все /api/* закрыты сервером.
    ============================================================ */
-const SITE_PASSWORD = (process.env.SITE_PASSWORD || 'lootly-parol-2026').trim();
+const SITE_PASSWORD = (process.env.SITE_PASSWORD || 'lutrix-parol-2026').trim();
 
 const PORT = process.env.PORT || 3000;
 const KEY = (process.env.RAWG_KEY || '').trim();
@@ -38,6 +39,20 @@ for (const line of fs.readFileSync(path.join(__dirname, 'apps.txt'), 'utf8').spl
   if (!line.trim() || line.startsWith('#')) continue;
   const [id, , domain] = line.split('|');
   if (domain && domain.trim()) apps.set(id, domain.trim());
+}
+
+// сколько всего позиций (игры + приложения): ид идут подряд от 0
+let totalItems = 0;
+for (const k of [...games.keys(), ...fs.readFileSync(path.join(__dirname, 'apps.txt'), 'utf8').split('\n').filter(l => /^\d/.test(l)).map(l => l.split('|')[0])]) totalItems = Math.max(totalItems, +k + 1);
+
+// магазин игр: цены берём из того же списка, что показывается на сайте, чтобы они не расходились
+const shop = [];
+{
+  const m = /const SHOP_LIST = `([^`]*)`/.exec(fs.readFileSync(path.join(PUBLIC, 'index.html'), 'utf8'));
+  for (const l of (m ? m[1] : '').split('\n')) {
+    const [name, , price, , d] = l.split('|');
+    if (name) shop.push({ name, price: Math.round(Math.round(+price * (1 - +d / 100)) * 100) });
+  }
 }
 
 const norm = s => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -64,9 +79,14 @@ const cache = new Map();    // id -> { url, at }
 const inflight = new Map(); // id -> Promise
 
 /* ===== Защита паролем: сессии, куки, страница входа ===== */
-const COOKIE = 'lootly_auth';
+const COOKIE = 'lutrix_auth';
 const WEEK = 7 * DAY;
-const sessions = new Map(); // token -> время истечения (ms)
+// Вход по паролю подписан секретом и сам хранит срок действия, поэтому
+// переживает перезапуск и «засыпание» Render: заново вводить пароль не придётся.
+// Подпись зависит от SITE_PASSWORD: сменили пароль, и все старые входы перестали работать.
+const GATE_KEY = crypto.createHash('sha256').update('lutrix-gate:' + (process.env.SESSION_SECRET || '') + ':' + SITE_PASSWORD).digest();
+const gateSign = exp => crypto.createHmac('sha256', GATE_KEY).update(String(exp)).digest('hex');
+const gateToken = exp => exp + '.' + gateSign(exp);
 
 function parseCookies(req) {
   const out = {};
@@ -81,10 +101,10 @@ function parseCookies(req) {
 
 function isAuthed(req) {
   const t = parseCookies(req)[COOKIE];
-  if (!t || !/^[a-f0-9]{64}$/.test(t)) return false;
-  const exp = sessions.get(t);
-  if (!exp || exp < Date.now()) { sessions.delete(t); return false; }
-  return true;
+  const m = /^(\d{10,15})\.([a-f0-9]{64})$/.exec(t || '');
+  if (!m || Number(m[1]) < Date.now()) return false;
+  const a = Buffer.from(m[2], 'hex'), b = Buffer.from(gateSign(m[1]), 'hex');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 // ограничение попыток: счётчики по ключу (IP, адрес почты и т.п.)
@@ -107,7 +127,6 @@ function clientIp(req) {
 const isHttps = req => String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim() === 'https';
 setInterval(() => {
   const now = Date.now();
-  for (const [t, exp] of sessions) if (exp < now) sessions.delete(t);
   for (const [k, b] of buckets) if (b.reset < now) buckets.delete(k);
 }, 60000).unref();
 
@@ -129,7 +148,7 @@ const LOGIN_PAGE = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Lootly</title>
+<title>Lutrix Game</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap">
@@ -158,7 +177,7 @@ button{font:inherit;cursor:pointer}
 </head>
 <body>
 <form class="card" id="f" autocomplete="off">
-  <div class="logo"><img src="/logo.png" alt="Lootly"></div>
+  <div class="logo"><img src="/logo.png" alt="Lutrix Game"></div>
   <div class="sub">Закрытая площадка. Введите пароль, чтобы войти.</div>
   <label>Пароль<input id="p" type="password" placeholder="••••••••" autofocus required></label>
   <div class="err" id="err">Неверный пароль. Попробуйте ещё раз.</div>
@@ -195,7 +214,7 @@ function lookup(id) {
     u.searchParams.set('search', name);
     u.searchParams.set('page_size', '5');
     u.searchParams.set('search_precise', 'true');
-    const r = await fetch(u, { headers: { 'User-Agent': 'Lootly/0.1' }, signal: AbortSignal.timeout(15000) });
+    const r = await fetch(u, { headers: { 'User-Agent': 'LutrixGame/0.1' }, signal: AbortSignal.timeout(15000) });
     if (!r.ok) throw new Error('RAWG вернул статус ' + r.status);
     const data = await r.json();
     let best = null, score = 0;
@@ -249,16 +268,12 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(401, JSONH).end('{"error":"wrong password"}'); return;
     }
     clearBucket('gate:' + ip);
-    const token = crypto.randomBytes(32).toString('hex');
-    sessions.set(token, Date.now() + WEEK);
-    setSessionCookie(req, res, token, WEEK / 1000);
+    setSessionCookie(req, res, gateToken(Date.now() + WEEK), WEEK / 1000);
     res.writeHead(200, JSONH).end('{"ok":true}');
     return;
   }
 
   if (url.pathname === '/api/logout' && req.method === 'POST') {
-    const t = parseCookies(req)[COOKIE];
-    if (t) sessions.delete(t);
     setSessionCookie(req, res, '', 0);
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' }).end('{"ok":true}');
     return;
@@ -278,6 +293,15 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     res.writeHead(401, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }).end('{"error":"auth required"}');
+    return;
+  }
+
+  if (/^\/api\/(market|orders|wallet|me|shop|avatar)(\/|$)/.test(url.pathname)) {
+    try { await market.handle(req, res, url, { clientIp, readBody, blocked, bump, clear: clearBucket, totalItems, shop }); }
+    catch (e) {
+      console.error('market', e.message);
+      if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' }).end('{"error":"server","message":"Ошибка сервера"}');
+    }
     return;
   }
 
@@ -327,4 +351,4 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.listen(PORT, () => console.log('Lootly запущен на порту ' + PORT + ' (вход по паролю: ' + (process.env.SITE_PASSWORD ? 'переменная окружения SITE_PASSWORD' : 'значение переменной SITE_PASSWORD в server.js') + ')' + ' (почта: ' + (auth.mode === 'live' ? 'Resend подключён' : 'не подключена, коды подтверждения только в журнале') + ')' + (KEY ? '' : ' (RAWG_KEY не задан: обложек игр не будет)') + (CLIENT ? '' : ' (BRANDFETCH_CLIENT_ID не задан: логотипов приложений не будет)')));
+server.listen(PORT, () => console.log('Lutrix Game запущен на порту ' + PORT + ' (вход по паролю: ' + (process.env.SITE_PASSWORD ? 'переменная окружения SITE_PASSWORD' : 'значение переменной SITE_PASSWORD в server.js') + ')' + ' (владелец: ' + (market.ownerConfigured ? 'OWNER_CODE задан' : 'OWNER_CODE не задан, стать владельцем нельзя') + ') (комиссия пополнения: ' + (market.FEE / 100) + ' ₽) (почта: ' + (auth.mode === 'live' ? 'Resend подключён' : 'не подключена, коды только в журнале') + ') (хранилище: ' + auth.storeNote + ')' + (KEY ? '' : ' (RAWG_KEY не задан: обложек игр не будет)') + (CLIENT ? '' : ' (BRANDFETCH_CLIENT_ID не задан: логотипов приложений не будет)')));

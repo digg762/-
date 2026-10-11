@@ -1,8 +1,9 @@
 {
-  "name": "lootly",
-  "version": "0.1.0",
+  "name": "lutrix-game",
+  "version": "0.4.0",
   "private": true,
-  "description": "Lootly: прототип игрового маркетплейса",
+  "description": "Lutrix Game: прототип игрового маркетплейса",
   "scripts": { "start": "node server.js" },
+  "dependencies": { "pg": "^8.13.0" },
   "engines": { "node": ">=18" }
 }

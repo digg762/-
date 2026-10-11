@@ -3,8 +3,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
-<title>Lootly</title>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}
+/* ---------- аватары, кошелёк, объявления, заказы ---------- */
+.avatar{position:relative;overflow:hidden}
+.avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.avatar.xs{width:22px;height:22px;font-size:11px}
+.avbtn{border:0;background:none;padding:0;border-radius:50%;display:inline-flex}
+.btn.big{padding:12px 20px;font-size:16px}
+.odesc{margin:8px 0 0;font-size:14px;color:var(--muted);overflow-wrap:anywhere;white-space:pre-line;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.secret{display:flex;gap:10px;align-items:center;justify-content:space-between;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.secret code{overflow-wrap:anywhere;font-size:14px;flex:1;min-width:0;user-select:all;white-space:pre-wrap}
+.status.wait{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.status.bad{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
+.ord{padding:12px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+.ord:last-child{border-bottom:0}
+.ord .top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.ord .top>div{min-width:0}
+.ord .btns{display:flex;gap:8px;flex-wrap:wrap}
+.ord textarea{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;min-height:64px;resize:vertical;width:100%}
+.modal.wide{width:min(560px,100%)}
+.amt{display:flex;gap:6px;flex-wrap:wrap}
+.pos{color:var(--good)}.neg{color:var(--bad)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:520px){.grid2{grid-template-columns:1fr}}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px}
+.stats div{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.stats b{display:block;font-size:18px;font-variant-numeric:tabular-nums}
+.stats span{font-size:12px;color:var(--muted)}
+.hint{font-size:12px;color:var(--muted);font-weight:400}
+</style>
+<title>Lutrix Game</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap">
@@ -745,13 +773,13 @@ const APP_DATA = {
 const POPULAR_APPS = ['ChatGPT', 'Claude', 'Telegram', 'Spotify', 'Discord', 'Steam', 'Netflix', 'YouTube', 'Midjourney', 'Canva', 'Duolingo', 'Xbox'];
 
 /* ===== Хранилище и настройки ===== */
-const LS_KEY = 'lootly-v1';
+const LS_KEY = 'lutrix-v1';
 const DEFAULTS = {
   theme: 'system', currency: 'RUB',
   notif: { orders: true, msgs: true, deals: false },
   twofa: false, showOnline: true, payout: 'card',
-  profile: { name: 'Игрок', bio: '', country: 'Россия', color: 0, seller: false },
-  balance: 1500, favs: [], cart: [], purchases: []
+  profile: { name: 'Игрок', bio: '', country: 'Россия', color: 0 },
+  favs: [], cart: []
 };
 function deepMerge(base, extra) {
   const out = Array.isArray(base) ? base.slice() : Object.assign({}, base);
@@ -775,7 +803,7 @@ function applyTheme() {
 
 /* ===== Валюта ===== */
 const CUR = {
-  RUB: { rate: 1, f: v => Math.round(v).toLocaleString('ru-RU') + ' ₽' },
+  RUB: { rate: 1, f: v => (Number.isInteger(Math.round(v * 100) / 100 * 1) && Math.abs(v - Math.round(v)) < 0.005 ? Math.round(v).toLocaleString('ru-RU') : v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) + ' ₽' },
   USD: { rate: 1 / 92, f: v => '$' + v.toFixed(2) },
   EUR: { rate: 1 / 100, f: v => v.toFixed(2).replace('.', ',') + ' €' },
   KZT: { rate: 5.3, f: v => Math.round(v).toLocaleString('ru-RU') + ' ₸' }
@@ -869,7 +897,7 @@ function filtersFor(g, cat) {
   if (A === 'app') {
     if (cat === 'sub') f.push(chips('plan', 'Тариф', ['Базовый', 'Plus / Premium', 'Pro / Max']), chips('term', 'Срок', ['1 месяц', '3 месяца', '12 месяцев']), chips('region', 'Регион', ['RU', 'EU', 'US', 'Global']));
     else f.push(chips('nominal', 'Номинал', ['до 500', '500–2 000', '2 000–10 000', '10 000+']), chips('region', 'Регион', ['RU', 'EU', 'US', 'Global']));
-    f.push(chips('delivery', 'Выдача', ['Автовыдача', 'Вручную']), check('verified', 'Проверенный продавец'), check('online', 'Продавец онлайн'));
+    f.push(chips('delivery', 'Выдача', ['Автовыдача', 'Вручную']));
     return f;
   }
   if (cat === 'cur') {
@@ -896,57 +924,35 @@ function filtersFor(g, cat) {
   } else if (cat === 'prop') {
     f.push(chips('kind', 'Вид', ['Дом', 'Автомобиль', 'Бизнес', 'Одежда']), chips('server', 'Сервер', ['Сервер 1', 'Сервер 2', 'Сервер 3', 'Сервер 4']));
   }
-  f.push(chips('delivery', 'Выдача', ['Автовыдача', 'Вручную']), check('verified', 'Проверенный продавец'), check('online', 'Продавец онлайн'));
+  f.push(chips('delivery', 'Выдача', ['Автовыдача', 'Вручную']));
   return f;
 }
 
-/* ===== Демо-предложения (генерируются, не настоящие лоты) ===== */
-const SELLERS = ['NightFox', 'Kirill_Store', 'GoldenKey', 'ProBoost24', 'Alina_Shop', 'Gamer4You', 'LootMaster', 'SteamHub', 'TopSeller77', 'Darkwave', 'Sunrise_Games', 'FastKeys', 'ZeroLag', 'Viktor_Accs', 'PixelBazaar', 'RedFalcon'];
-const PRICE_RANGE = { cur: [49, 6900], acc: [190, 9900], item: [30, 15000], key: [290, 5990], boost: [400, 7000], sub: [150, 2500], dlc: [190, 3500], prop: [99, 12000] };
-const OFFER_CACHE = new Map();
-function offersFor(g, cat) {
-  const key = g.id + ':' + cat;
-  if (OFFER_CACHE.has(key)) return OFFER_CACHE.get(key);
-  const r = rng(hash(g.name + '|' + cat)), pick = a => a[Math.floor(r() * a.length)];
-  const filters = filtersFor(g, cat), n = 14 + Math.floor(r() * 26), [lo, hi] = PRICE_RANGE[cat], list = [];
-  for (let i = 0; i < n; i++) {
-    const a = {};
-    for (const f of filters) a[f.id] = f.type === 'chips' ? pick(f.opts) : r() < 0.5;
-    const s = { name: pick(SELLERS) + (r() < 0.4 ? Math.floor(r() * 99) : ''), rating: (4.3 + r() * 0.7).toFixed(1), deals: 20 + Math.floor(r() * 8000) };
-    const p = Math.round((lo + (hi - lo) * Math.pow(r(), 2.2)) / (hi > 1000 ? 10 : 1)) * (hi > 1000 ? 10 : 1);
-    const cn = curName(g); let title;
-    if (g.arch === 'app' && cat === 'key') {
-      const b = { 'до 500': [100, 500], '500–2 000': [500, 2000], '2 000–10 000': [2000, 10000], '10 000+': [10000, 50000] }[a.nominal];
-      const q = Math.round((b[0] + (b[1] - b[0]) * r()) / 50) * 50;
-      title = `${g.name}: пополнение или карта на ${q.toLocaleString('ru-RU')} ₽ · ${a.region}`;
-    } else if (g.arch === 'app' && cat === 'sub') {
-      title = `${g.name}: ${a.plan} на ${a.term} · ${a.region}`;
-    } else if (cat === 'cur') {
-      const b = { 'до 500': [100, 500], '500–2 000': [500, 2000], '2 000–10 000': [2000, 10000], '10 000+': [10000, 120000] }[a.amount];
-      const q = Math.round((b[0] + (b[1] - b[0]) * r()) / 10) * 10;
-      title = `${q.toLocaleString('ru-RU')} ${cn}` + (a.server ? ` · ${a.server}` : '') + ` · ${a.method.toLowerCase()}`;
-    } else if (cat === 'acc') {
-      title = `Аккаунт ${g.name} · уровень ${a.level}` + (a.rank ? ` · ранг: ${a.rank.toLowerCase()}` : '') + (a.chars ? ` · редких персонажей: ${a.chars}` : '') + (a.server ? ` · ${a.server}` : '');
-    } else if (cat === 'item') {
-      title = `${a.rarity} ${a.kind.toLowerCase()} для ${g.name}`;
-    } else if (cat === 'key') {
-      title = `${g.name} — ${a.edition} · ${a.activation} · ${a.region}`;
-    } else if (cat === 'boost') {
-      title = `${a.kind} в ${g.name} · срок: ${a.speed.toLowerCase()}`;
-    } else if (cat === 'sub') {
-      title = `${g.name}: подписка на ${a.term} · ${a.region}`;
-    } else if (cat === 'dlc') {
-      title = `${g.name} — ${a.type.toLowerCase()} · ${a.activation}`;
-    } else {
-      title = `${a.kind} · ${a.server} · ${g.name}`;
-    }
-    const sale = r() < 0.18 ? Math.round(p * (1.15 + r() * 0.3)) : 0;
-    list.push({ id: key + ':' + i, gid: g.id, cat, title, price: p, old: sale, seller: s, attrs: a, online: a.online, verified: a.verified, delivery: a.delivery, sold: Math.floor(r() * 600), sort: r() });
-  }
-  OFFER_CACHE.set(key, list);
-  return list;
+/* ===== Объявления: настоящие данные с сервера ===== */
+let SUM = { items: {} };               // сводка: сколько объявлений и самая низкая цена по каждой игре
+const OFF = new Map();                 // 'gid:раздел' -> список объявлений
+const OFFER_BY_ID = new Map();
+const OFF_LOADING = new Set();
+async function loadSummary() {
+  try { const r = await fetch('/api/market/summary'); if (r.ok) SUM = await r.json(); } catch (e) {}
 }
-function fromPrice(g) { let m = Infinity; for (const c of catsFor(g)) for (const o of offersFor(g, c)) if (o.price < m) m = o.price; return m; }
+const itemSum = g => SUM.items[g.id] || { n: {}, min: 0 };
+const catCount = (g, c) => itemSum(g).n[c] || 0;
+const totalOffers = g => Object.values(itemSum(g).n).reduce((a, b) => a + b, 0);
+const fromPrice = g => itemSum(g).min ? itemSum(g).min / 100 : 0;
+async function loadOffers(gid, cat) {
+  const key = gid + ':' + cat;
+  OFF_LOADING.add(key);
+  try {
+    const r = await fetch('/api/market/offers?gid=' + gid + '&cat=' + cat);
+    if (r.status === 401) { location.reload(); return; }
+    const j = await r.json();
+    const list = (j.offers || []).map(o => Object.assign(o, { kop: o.price, price: o.price / 100 }));
+    list.forEach(o => OFFER_BY_ID.set(o.id, o));
+    OFF.set(key, list);
+  } catch (e) { if (!OFF.has(key)) OFF.set(key, []); }
+  OFF_LOADING.delete(key);
+}
 
 /* ===== Магазин игр (отдельный раздел) ===== */
 const SHOP_LIST = `Clair Obscur: Expedition 33|РПГ|3499|PC,PS,XB|0|2025
@@ -1057,6 +1063,7 @@ const SYM = { RUB: '₽', USD: '$', EUR: '€', KZT: '₸' };
 
 /* ===== Состояние экрана ===== */
 let ME = null;
+const MY = { wallet: null, buys: [], sales: [], offers: [], loaded: false, loading: false };
 const R = { route: 'market', kind: 'game', gid: null, cat: null, group: 'all', q: '', gq: '', sort: 'pop', fv: {}, maxPrice: '', shown: 12, fopen: false, shopGenre: 'Все', shopPlat: '', shopSale: false, shopMax: '', shopSort: 'pop', shopQ: '', ptab: 'buys' };
 const view = () => $('#view');
 
@@ -1065,7 +1072,7 @@ function apply(token) {
   token = (token || '').replace('#', '');
   const m = /^g-(\d+)$/.exec(token);
   if (m && GAMES[+m[1]]) { R.route = 'game'; R.gid = +m[1]; R.cat = null; resetOfferState(); }
-  else if (['market', 'shop', 'profile', 'settings'].includes(token)) R.route = token;
+  else if (['market', 'shop', 'profile', 'settings'].includes(token)) { R.route = token; if (token === 'profile') MY.loaded = false; }
   else R.route = 'market';
   render(); window.scrollTo(0, 0);
 }
@@ -1075,24 +1082,35 @@ function go(token) {
 }
 
 /* ===== Каркас ===== */
+const avUrl = u => u && u.av ? '/api/avatar?u=' + encodeURIComponent(u.id) + '&v=' + u.av : '';
+function avatar(u, cls, colorIdx) {
+  const letter = esc(((u && u.name) || '?').trim()[0] || '?').toUpperCase();
+  const bg = AV[(colorIdx !== undefined ? colorIdx : (u && u.id ? hash(String(u.id)) : 0)) % AV.length];
+  return `<span class="avatar ${cls || ''}" style="background:${bg}">${letter}${avUrl(u) ? `<img src="${esc(avUrl(u))}" alt="" onerror="this.remove()">` : ''}</span>`;
+}
+const balK = () => (ME && ME.balance) || 0;
 function renderHeader() {
   const cartN = S.cart.length, onShop = R.route === 'shop', onMarket = R.route === 'market' || R.route === 'game';
+  const sb = document.activeElement && document.activeElement.id === 'gsearch' ? document.activeElement : null;
+  const sel = sb ? [sb.selectionStart, sb.selectionEnd] : null;
   $('#hdr').innerHTML = `
-    <button class="logo" data-go="market" aria-label="Lootly, на главную"><img src="/logo.png" alt="Lootly" onerror="this.replaceWith(document.createTextNode('Lootly'))"></button>
+    <button class="logo" data-go="market" aria-label="Lutrix Game, на главную"><img src="/logo.png" alt="Lutrix Game" onerror="this.replaceWith(document.createTextNode('Lutrix Game'))"></button>
     <div class="nav-tabs">
       <button data-go="market" ${onMarket ? 'aria-current="page"' : ''}>Маркетплейс</button>
       <button data-go="shop" ${onShop ? 'aria-current="page"' : ''}>Магазин игр</button>
     </div>
     <div class="search">${ICON.search}
-      <input id="gsearch" type="search" placeholder="${R.route === 'shop' ? 'Поиск в магазине игр…' : 'Поиск игр: Roblox, Valorant, GTA…'}" autocomplete="off" value="${esc(R.q)}" aria-label="Поиск игр">
+      <input id="gsearch" type="search" placeholder="${R.route === 'shop' ? 'Поиск в магазине игр…' : 'Поиск игр и приложений…'}" autocomplete="off" value="${esc(R.q)}" aria-label="Поиск">
       <div class="pop" id="spop" hidden></div>
     </div>
     <div class="hdr-actions">
-      <span class="pill num hide-m" title="Баланс">${money(S.balance)}</span>
+      <button class="btn primary sm" data-sell="" title="Создать объявление">+ <span class="hide-m">Продать</span></button>
+      ${ME ? `<button class="pill num" data-topup title="Баланс. Нажмите, чтобы пополнить">${moneyK(balK())}</button>` : ''}
       <button class="icon-btn" data-act="cart" aria-label="Корзина">${ICON.cart}${cartN ? `<span class="badge">${cartN}</span>` : ''}</button>
       <button class="icon-btn hide-m" data-go="settings" aria-label="Настройки">${ICON.gear}</button>
-      ${ME ? `<button class="avatar" data-go="profile" style="background:${AV[S.profile.color % AV.length]}" aria-label="Профиль">${esc((ME.name || 'И')[0].toUpperCase())}</button>` : `<button class="btn primary sm" data-act="auth">Войти</button>`}
+      ${ME ? `<button class="avbtn" data-go="profile" aria-label="Профиль">${avatar(ME, '', S.profile.color)}</button>` : `<button class="btn sm" data-act="auth">Войти</button>`}
     </div>`;
+  if (sb) { const n = $('#gsearch'); if (n) { n.focus(); try { n.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
   const cur = R.route === 'game' ? 'market' : R.route;
   $('#bnav').innerHTML = [['market', 'Маркет', ICON.market], ['shop', 'Игры', ICON.game], ['profile', 'Профиль', ICON.user], ['settings', 'Настройки', ICON.gear]]
     .map(([t, l, i]) => `<button data-go="${t}" ${cur === t ? 'aria-current="page"' : ''}>${i}<span>${l}</span></button>`).join('');
@@ -1105,22 +1123,43 @@ function render() {
 }
 function renderFooter() {
   const f = $('#foot'); if (!f) return;
-  f.innerHTML = `Lootly: демо-прототип, настоящих сделок нет.` + ((Object.keys(COVERS).length || COVER_API) ? ` Данные и обложки игр: <a href="https://rawg.io" target="_blank" rel="noopener">RAWG</a>.` : '');
+  f.innerHTML = `Lutrix Game: демо-версия, оплата виртуальная, настоящих денег нет.` + ((Object.keys(COVERS).length || COVER_API) ? ` Данные и обложки игр: <a href="https://rawg.io" target="_blank" rel="noopener">RAWG</a>.` : '');
 }
 
 /* ===== Поиск ===== */
-const ALIASES = [['кс', 'counter-strike'], ['cs', 'counter-strike'], ['гта', 'gta'], ['майнкрафт', 'minecraft'], ['майн', 'minecraft'], ['вов', 'warcraft'], ['тарков', 'tarkov'], ['пабг', 'pubg'], ['апекс', 'apex'], ['валорант', 'valorant'], ['роблокс', 'roblox'], ['роблокс', 'roblox'], ['геншин', 'genshin'], ['фортнайт', 'fortnite'], ['дота', 'dota'], ['witcher', 'ведьмак'], ['лига легенд', 'league of legends'], ['дбд', 'dead by daylight']];
+// Ищем и по написанию, и по звучанию: «роблокс», «майнкрафт», «телеграм» находят Roblox, Minecraft, Telegram.
+const ALIASES = [['кс', 'counter-strike'], ['cs', 'counter-strike'], ['гта', 'gta'], ['вов', 'warcraft'], ['тарков', 'tarkov'], ['лига легенд', 'league of legends'], ['дбд', 'dead by daylight'], ['witcher', 'ведьмак'], ['фифа', 'fc 2'], ['ак', 'assassin']];
+const TR = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'i', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sh', ъ: '', ы: 'i', ь: '', э: 'e', ю: 'iu', я: 'ia' };
+const plain = t => String(t).toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+function skeleton(t) {
+  let l = plain(t).replace(/[а-я]/g, c => TR[c] !== undefined ? TR[c] : c);
+  l = l.replace(/x/g, 'ks').replace(/[cq]/g, 'k').replace(/w/g, 'v').replace(/y/g, 'i').replace(/[^a-z0-9]/g, '').replace(/[aeiou]/g, '').replace(/(.)\1+/g, '$1');
+  return l;
+}
+const SK = new Map();
 function matches(name, q) {
-  q = q.trim().toLowerCase(); if (!q) return true;
-  const n = name.toLowerCase(), vars = [q];
+  q = plain(q); if (!q) return true;
+  const n = plain(name), vars = [q];
   for (const [a, b] of ALIASES) if (q.includes(a)) vars.push(q.replace(a, b));
-  return vars.some(v => n.includes(v));
+  if (vars.some(v => n.includes(v))) return true;
+  const qs = skeleton(q); if (qs.length < 3) return false;
+  let ns = SK.get(name); if (ns === undefined) { ns = skeleton(name); SK.set(name, ns); }
+  return ns.includes(qs);
+}
+// сначала точные совпадения (по началу слов), потом «по звучанию»
+function rank(name, q) {
+  const n = plain(name), p = plain(q);
+  if (n === p) return 0; if (n.startsWith(p)) return 1; if (n.includes(' ' + p)) return 2; if (n.includes(p)) return 3; return 4;
+}
+function searchGames(q, limit) {
+  const l = GAMES.filter(g => matches(g.name, q)).sort((a, b) => rank(a.name, q) - rank(b.name, q));
+  return limit ? l.slice(0, limit) : l;
 }
 function suggest(q) {
   const pop = $('#spop'); if (!pop) return;
   if (!q.trim()) { pop.hidden = true; return; }
-  const res = GAMES.filter(g => matches(g.name, q)).slice(0, 8);
-  pop.innerHTML = res.length ? res.map(g => `<button data-go="g-${g.id}">${tile(g, 'tile-sm')}<span>${esc(g.name)}</span></button>`).join('') : `<div class="muted" style="padding:10px 12px">Ничего не найдено. Попробуйте «Другие игры».</div>`;
+  const res = searchGames(q, 8);
+  pop.innerHTML = res.length ? res.map(g => `<button data-go="g-${g.id}">${tile(g, 'tile-sm')}<span>${esc(g.name)}</span></button>`).join('') : `<div class="muted" style="padding:10px 12px">Ничего не найдено. Попробуйте «Другие игры» или «Другие приложения».</div>`;
   pop.hidden = false;
 }
 
@@ -1128,8 +1167,8 @@ function suggest(q) {
 function viewMarket() {
   view().innerHTML = `
     <div class="hero-line">
-      <div><h1>Маркетплейс</h1><p class="muted" style="margin:6px 0 0;max-width:56ch">Игровая валюта, аккаунты, ключи и услуги от продавцов. Выберите игру, чтобы увидеть предложения.</p></div>
-      <div class="demo-note">Демо: предложения и продавцы сгенерированы для примера</div>
+      <div><h1>Маркетплейс</h1><p class="muted" style="margin:6px 0 0;max-width:56ch">Игровая валюта, аккаунты, ключи и услуги от продавцов. Выберите игру или приложение, чтобы увидеть предложения, или разместите своё.</p></div>
+      <button class="btn primary big" data-sell="">+ Создать объявление</button>
     </div>
     <div class="seg" style="margin-top:20px" id="kinds"></div>
     <div class="scroll-x" style="margin-top:14px" id="groups"></div>
@@ -1148,13 +1187,14 @@ function gameBtn(g) { return `<button class="game" data-go="g-${g.id}" title="${
 function renderHomeDyn() {
   const box = $('#home-dyn'); if (!box) return;
   const isApp = R.kind === 'app';
-  let list = GAMES.filter(g => matches(g.name, R.q));
+  let list = R.q.trim() ? searchGames(R.q) : GAMES.slice();
   if (!R.q.trim()) list = list.filter(g => (g.arch === 'app') === isApp);
   if (R.group === 'fav') list = list.filter(g => S.favs.includes(g.id));
   else if (R.group !== 'all' && !R.q.trim()) list = list.filter(g => grp(g) === R.group);
   const showRail = !R.q && R.group === 'all';
   const pop = (isApp ? POPULAR_APPS : POPULAR).map(n => GAMES.find(g => g.name === n)).filter(Boolean);
-  const rail = showRail ? `<div class="sec-head"><h2>Популярное сегодня</h2></div><div class="rail">${pop.map(gameBtn).join('')}</div>` : '';
+  const live = GAMES.filter(g => (g.arch === 'app') === isApp && totalOffers(g) > 0).sort((a, b) => totalOffers(b) - totalOffers(a)).slice(0, 12);
+  const rail = showRail ? (live.length ? `<div class="sec-head"><h2>Сейчас в продаже</h2></div><div class="rail">${live.map(gameBtn).join('')}</div>` : '') + `<div class="sec-head"><h2>Популярное</h2></div><div class="rail">${pop.map(gameBtn).join('')}</div>` : '';
   const title = R.q ? `Результаты по запросу «${esc(R.q)}»` : (R.group === 'all' ? (isApp ? 'Все приложения' : 'Все игры') : (R.group === 'fav' ? 'Избранное' : GROUP_NAME[R.group]));
   const empty = R.group === 'fav' && !list.length ? 'Пока пусто. Откройте игру или приложение и нажмите «В избранное».' : 'Ничего не найдено. Попробуйте «Другие игры» или «Другие приложения».';
   box.innerHTML = `${rail}<div class="sec-head"><h2>${title} <span class="muted num" style="font-size:14px;font-family:var(--f-body)">${list.length}</span></h2></div>
@@ -1164,8 +1204,8 @@ function renderHomeDyn() {
 /* ===== Страница игры ===== */
 function viewGame() {
   const g = GAMES[R.gid], cats = catsFor(g);
-  if (!cats.includes(R.cat)) R.cat = cats[0];
-  const total = cats.reduce((s, c) => s + offersFor(g, c).length, 0), fav = S.favs.includes(g.id);
+  if (!cats.includes(R.cat)) R.cat = cats.find(c => catCount(g, c) > 0) || cats[0];
+  const total = totalOffers(g), fav = S.favs.includes(g.id);
   view().innerHTML = `
     <div class="gh">
       <div class="gh-art" style="background:${coverOf(g) && g.arch !== 'app' ? `url('${esc(coverOf(g))}') center/cover, ` : ''}${artBg(g.name)}"></div><div class="gh-veil"></div>
@@ -1175,9 +1215,9 @@ function viewGame() {
           ${tile(g)}
           <div class="gh-txt">
             <div class="gh-title">${esc(g.name)}</div>
-            <div class="gh-meta"><span class="pill">${esc(GROUP_NAME[grp(g)] || 'Игры')}</span><span class="pill">${(PLATFORMS[g.arch] || PLATFORMS.single).join(' · ')}</span><span class="pill num">${pluralOffers(total)}</span><span class="pill num">от ${money(fromPrice(g))}</span></div>
+            <div class="gh-meta"><span class="pill">${esc(GROUP_NAME[grp(g)] || 'Игры')}</span><span class="pill">${(PLATFORMS[g.arch] || PLATFORMS.single).join(' · ')}</span><span class="pill num">${total ? pluralOffers(total) : 'Пока нет предложений'}</span>${total ? `<span class="pill num">от ${money(fromPrice(g))}</span>` : ''}</div>
           </div>
-          <div class="gh-act"><button class="btn ${fav ? 'primary' : ''}" data-fav="${g.id}">${ICON.heart.replace('<svg', '<svg width="17" height="17"')} ${fav ? 'В избранном' : 'В избранное'}</button></div>
+          <div class="gh-act"><button class="btn primary" data-sell="${g.id}">+ Продать</button><button class="btn ${fav ? 'primary' : ''}" data-fav="${g.id}">${ICON.heart.replace('<svg', '<svg width="17" height="17"')} ${fav ? 'В избранном' : 'В избранное'}</button></div>
         </div>
       </div>
     </div>
@@ -1189,18 +1229,23 @@ function viewGame() {
           <input class="grow" id="gq" type="search" placeholder="Поиск по предложениям" value="${esc(R.gq)}" aria-label="Поиск по предложениям" style="flex:1 1 200px">
           <button class="btn f-toggle" data-act="ftoggle">${ICON.filter.replace('<svg', '<svg width="17" height="17"')} Фильтры</button>
           <select id="gsort" aria-label="Сортировка" style="width:auto;flex:none">
-            <option value="pop">Популярные</option><option value="asc">Сначала дешёвые</option><option value="desc">Сначала дорогие</option><option value="rate">По рейтингу</option>
+            <option value="pop">Популярные</option><option value="new">Сначала новые</option><option value="asc">Сначала дешёвые</option><option value="desc">Сначала дорогие</option>
           </select>
         </div>
         <div class="offers" id="offers"></div>
       </section>
     </div>`;
   $('#gsort').value = R.sort;
-  renderCats(); renderFilters(); renderOffers();
+  renderCats(); renderFilters(); refreshOffers();
+}
+function refreshOffers() {
+  const gid = R.gid, cat = R.cat, key = gid + ':' + cat;
+  renderOffers();
+  if (!OFF.has(key) && !OFF_LOADING.has(key)) loadOffers(gid, cat).then(() => { if (R.route === 'game' && R.gid === gid && R.cat === cat) renderOffers(); });
 }
 function renderCats() {
   const g = GAMES[R.gid];
-  $('#cats').innerHTML = catsFor(g).map(c => `<button role="tab" data-cat="${c}" aria-selected="${R.cat === c}">${esc(catLabel(g, c))}<span class="cnt num">${offersFor(g, c).length}</span></button>`).join('');
+  $('#cats').innerHTML = catsFor(g).map(c => `<button role="tab" data-cat="${c}" aria-selected="${R.cat === c}">${esc(catLabel(g, c))}<span class="cnt num">${catCount(g, c)}</span></button>`).join('');
 }
 function renderFilters() {
   const g = GAMES[R.gid], fs = filtersFor(g, R.cat), p = $('#fpanel');
@@ -1211,28 +1256,35 @@ function renderFilters() {
   }).join('') + `<div class="fg"><label for="fmax">Цена до, ${SYM[S.currency]}</label><input id="fmax" type="number" min="0" inputmode="numeric" placeholder="Без ограничения" value="${esc(R.maxPrice)}"></div>
   <button class="btn sm" data-act="freset">Сбросить фильтры</button>`;
 }
-function getOffer(id) { const [gid, cat, i] = id.split(':'); return offersFor(GAMES[+gid], cat)[+i]; }
+const getOffer = id => OFFER_BY_ID.get(id);
 function filteredOffers() {
-  const g = GAMES[R.gid], rate = (CUR[S.currency] || CUR.RUB).rate, q = R.gq.trim().toLowerCase();
-  let l = offersFor(g, R.cat).filter(o => {
+  const rate = (CUR[S.currency] || CUR.RUB).rate, q = R.gq.trim().toLowerCase();
+  const base = OFF.get(R.gid + ':' + R.cat) || [];
+  const l = base.filter(o => {
     for (const [k, v] of Object.entries(R.fv)) { if (v === true && !o.attrs[k]) return false; if (typeof v === 'string' && v && o.attrs[k] !== v) return false; }
     if (R.maxPrice !== '' && o.price * rate > +R.maxPrice) return false;
-    if (q && !o.title.toLowerCase().includes(q) && !o.seller.name.toLowerCase().includes(q)) return false;
+    if (q && !o.title.toLowerCase().includes(q) && !(o.desc || '').toLowerCase().includes(q) && !o.seller.name.toLowerCase().includes(q)) return false;
     return true;
   });
-  const s = { pop: (a, b) => b.sold - a.sold, asc: (a, b) => a.price - b.price, desc: (a, b) => b.price - a.price, rate: (a, b) => b.seller.rating - a.seller.rating }[R.sort];
+  const s = { pop: (a, b) => b.sold - a.sold || b.createdAt - a.createdAt, new: (a, b) => b.createdAt - a.createdAt, asc: (a, b) => a.price - b.price, desc: (a, b) => b.price - a.price }[R.sort] || ((a, b) => b.createdAt - a.createdAt);
   return l.sort(s);
 }
 function renderOffers() {
-  const l = filteredOffers(), box = $('#offers'); if (!box) return;
+  const box = $('#offers'); if (!box) return;
+  const g = GAMES[R.gid], key = R.gid + ':' + R.cat;
+  if (!OFF.has(key)) { box.innerHTML = `<div class="empty">Загружаем предложения…</div>`; return; }
+  const base = OFF.get(key), l = filteredOffers();
+  if (!base.length) { box.innerHTML = `<div class="empty"><div style="font-weight:700;color:var(--fg);font-size:17px;margin-bottom:6px">В разделе «${esc(catLabel(g, R.cat))}» пока нет предложений</div><p style="margin:0 0 14px">Станьте первым продавцом: объявление создаётся за минуту.</p><button class="btn primary" data-sell="${g.id}" data-sell-cat="${R.cat}">+ Создать объявление</button></div>`; return; }
   if (!l.length) { box.innerHTML = `<div class="empty">Под такие фильтры ничего нет. Ослабьте условия или нажмите «Сбросить фильтры».</div>`; return; }
   box.innerHTML = `<div class="muted num" style="font-size:13px">Найдено: ${pluralOffers(l.length)}</div>` + l.slice(0, R.shown).map(o => {
-    const tags = Object.entries(o.attrs).filter(([k, v]) => typeof v === 'string' && !['delivery'].includes(k)).slice(0, 4).map(([, v]) => `<span class="tag">${esc(v)}</span>`).join('');
+    const tags = Object.entries(o.attrs).filter(([k, v]) => typeof v === 'string' && k !== 'delivery').slice(0, 4).map(([, v]) => `<span class="tag">${esc(v)}</span>`).join('');
+    const mine = ME && o.seller.id === ME.id;
     return `<article class="offer">
       <div style="min-width:0"><h3>${esc(o.title)}</h3>
-        <div class="tags">${tags}<span class="tag ${o.delivery === 'Автовыдача' ? 'good' : ''}">${o.delivery}</span>${o.verified ? '<span class="tag good">Проверен</span>' : ''}</div>
-        <div class="seller"><span class="dot ${o.online ? 'on' : ''}"></span><b style="color:var(--fg)">${esc(o.seller.name)}</b><span class="num">★ ${o.seller.rating}</span><span class="num">${o.seller.deals.toLocaleString('ru-RU')} сделок</span></div></div>
-      <div class="price-col"><div class="price">${o.old ? `<span class="old">${money(o.old)}</span>` : ''}${money(o.price)}</div><button class="btn primary sm" data-buy="${o.id}">Купить</button></div>
+        <div class="tags">${tags}<span class="tag ${o.delivery === 'Автовыдача' ? 'good' : ''}">${esc(o.delivery)}</span><span class="tag">В наличии: ${o.stock}</span></div>
+        ${o.desc ? `<p class="odesc">${esc(o.desc)}</p>` : ''}
+        <div class="seller">${avatar(o.seller, 'xs')}<b style="color:var(--fg)">${esc(o.seller.name)}</b>${o.seller.owner ? '<span class="tag good">Площадка</span>' : ''}<span class="num">${o.seller.deals.toLocaleString('ru-RU')} ${o.seller.deals % 10 === 1 && o.seller.deals % 100 !== 11 ? 'сделка' : 'сделок'}</span></div></div>
+      <div class="price-col"><div class="price">${money(o.price)}</div>${mine ? '<button class="btn sm" disabled>Ваше объявление</button>' : `<button class="btn primary sm" data-buy="${esc(o.id)}">Купить</button>`}</div>
     </article>`;
   }).join('') + (l.length > R.shown ? `<button class="btn" data-act="more" style="align-self:center">Показать ещё</button>` : '');
 }
@@ -1244,18 +1296,36 @@ let toastT;
 function toast(msg) { const r = $('#toast-root'); r.innerHTML = `<div class="toast">${esc(msg)}</div>`; clearTimeout(toastT); toastT = setTimeout(() => { r.innerHTML = ''; }, 2600); }
 function buyModal(id) {
   if (!ME) { openAuth('login', 'Войдите или зарегистрируйтесь, чтобы оформить покупку.'); return; }
-  const o = getOffer(id), g = GAMES[o.gid], ok = S.balance >= o.price;
+  const o = getOffer(id); if (!o) return;
+  const g = GAMES[o.gid], ok = balK() >= o.kop;
   openLayer(`<div class="modal-bg" data-close><div class="modal" role="dialog" aria-modal="true" aria-label="Оформление заказа">
     <h2>Оформление заказа</h2>
     <div><div style="font-weight:600;overflow-wrap:anywhere">${esc(o.title)}</div>
-    <div class="kv"><span class="muted">Игра</span><b>${esc(g.name)}</b></div>
+    <div class="kv"><span class="muted">${g.arch === 'app' ? 'Приложение' : 'Игра'}</span><b>${esc(g.name)}</b></div>
     <div class="kv"><span class="muted">Раздел</span><b>${esc(catLabel(g, o.cat))}</b></div>
-    <div class="kv"><span class="muted">Продавец</span><b>${esc(o.seller.name)} · ★ ${o.seller.rating}</b></div>
-    <div class="kv"><span class="muted">Выдача</span><b>${o.delivery}</b></div>
+    <div class="kv"><span class="muted">Продавец</span><b>${esc(o.seller.name)}</b></div>
+    <div class="kv"><span class="muted">Выдача</span><b>${esc(o.delivery)}</b></div>
     <div class="kv"><span class="muted">К оплате</span><b style="font-size:18px">${money(o.price)}</b></div>
-    <div class="kv"><span class="muted">Баланс</span><b style="color:${ok ? 'var(--good)' : 'var(--bad)'}">${money(S.balance)}</b></div></div>
-    <p class="muted" style="margin:0;font-size:13px">Это демо-режим: реальная оплата не подключена, списывается виртуальный баланс.</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-pay="${o.id}" ${ok ? '' : 'disabled'}>Оплатить с баланса</button>${ok ? '' : `<button class="btn" data-topup>Пополнить на 1 000 ₽ (демо)</button>`}<button class="btn" data-close-btn>Отмена</button></div>
+    <div class="kv"><span class="muted">Ваш баланс</span><b style="color:${ok ? 'var(--good)' : 'var(--bad)'}">${moneyK(balK())}</b></div></div>
+    ${o.desc ? `<p class="muted" style="margin:0;font-size:14px;overflow-wrap:anywhere;white-space:pre-line">${esc(o.desc)}</p>` : ''}
+    <p class="muted" style="margin:0;font-size:13px">Оплата виртуальным балансом. Деньги удерживаются на площадке и уходят продавцу, когда вы подтвердите получение.</p>
+    <div class="auth-err" id="buy-err" hidden></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-pay="${esc(o.id)}" ${ok ? '' : 'disabled'}>Оплатить с баланса</button>${ok ? '' : `<button class="btn" data-topup="${Math.max(0, o.kop - balK())}">Пополнить баланс</button>`}<button class="btn" data-close-btn>Отмена</button></div>
+  </div></div>`);
+}
+function copyText(t) {
+  const done = () => toast('Скопировано');
+  try { navigator.clipboard.writeText(t).then(done, () => toast('Не удалось скопировать')); } catch (e) { toast('Не удалось скопировать'); }
+}
+function orderDoneModal(ord) {
+  const auto = ord.delivery === 'Автовыдача';
+  openLayer(`<div class="modal-bg" data-close><div class="modal" role="dialog" aria-modal="true" aria-label="Заказ оплачен">
+    <h2>${auto ? 'Заказ оплачен и выдан' : 'Заказ оплачен'}</h2>
+    <div style="overflow-wrap:anywhere;font-weight:600">${esc(ord.title)}</div>
+    ${auto ? `<div class="secret"><code id="sec-text">${esc(ord.secret || '')}</code><button class="btn sm" data-copy="${esc(ord.secret || '')}">Копировать</button></div>
+      <p class="muted" style="margin:0;font-size:13px">Данные сохранены в профиле, в разделе «Покупки». Проверьте их и подтвердите получение, тогда деньги уйдут продавцу.</p>`
+      : `<p class="muted" style="margin:0">Продавец <b style="color:var(--fg)">${esc(ord.seller.name)}</b> получил уведомление в разделе «Продажи». Когда он выдаст товар, сообщение появится в профиле, в разделе «Покупки».</p>`}
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-go-profile="buys">К моим покупкам</button><button class="btn" data-close-btn>Закрыть</button></div>
   </div></div>`);
 }
 
@@ -1276,8 +1346,8 @@ function posterBtn(x) {
 function viewShop() {
   const feat = ['Clair Obscur: Expedition 33', 'Elden Ring: Nightreign', 'Hollow Knight: Silksong'].map(n => SHOP.find(x => x.name === n));
   view().innerHTML = `
-    <div class="hero-line"><div><h1>Магазин игр</h1><p class="muted" style="margin:6px 0 0;max-width:56ch">Лицензионные ключи и игры от Lootly. Этот раздел отделён от маркетплейса продавцов.</p></div>
-    <div class="demo-note">Демо: цены примерные, оплата не подключена</div></div>
+    <div class="hero-line"><div><h1>Магазин игр</h1><p class="muted" style="margin:6px 0 0;max-width:56ch">Игры и ключи от самой площадки Lutrix Game. Этот раздел отделён от маркетплейса продавцов.</p></div>
+    <div class="demo-note">Оплата виртуальным балансом</div></div>
     <div class="shop-hero" style="margin-top:20px">${feat.map(x => `<button class="feat" data-shop="${x.id}" style="background:${coverByName(x.name) ? `url(\'${esc(coverByName(x.name))}\') center/cover, ` : ''}${artBg(x.name)}"><span class="mono">${esc(mono(x.name))}</span><span class="pill num">${x.disc ? '−' + x.disc + '% · ' : ''}${money(shopPrice(x))}</span><h3>${esc(x.name)}</h3><span style="opacity:.85;font-size:14px">${x.genre} · ${x.year}</span></button>`).join('')}</div>
     <div class="sec-head"><h2>Каталог <span class="muted num" id="shop-count" style="font-size:14px;font-family:var(--f-body)"></span></h2></div>
     <div class="shop-layout"><aside class="fpanel" id="fpanel" data-open="${R.fopen}"></aside>
@@ -1303,48 +1373,348 @@ function shopModal(id) {
   const x = SHOP[id], inCart = S.cart.includes(id), p = shopPrice(x);
   openLayer(`<div class="modal-bg" data-close><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(x.name)}">
     <div style="display:flex;gap:14px;align-items:center">${tile(x)}<div style="min-width:0"><h2>${esc(x.name)}</h2><div class="muted" style="font-size:14px">${x.genre} · ${x.year}</div></div></div>
-    <div class="chips">${x.plats.map(k => `<span class="tag">${PLAT[k]}</span>`).join('')}<span class="tag good">Ключ на email</span></div>
+    <div class="chips">${x.plats.map(k => `<span class="tag">${PLAT[k]}</span>`).join('')}<span class="tag">Демо: ключ не выдаётся</span></div>
     <div class="price num" style="font-size:24px">${priceHtml(x)}${x.disc ? ` <span class="tag good" style="vertical-align:middle">−${x.disc}%</span>` : ''}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-cartadd="${x.id}" ${inCart ? 'disabled' : ''}>${inCart ? 'Уже в корзине' : 'В корзину'}</button><button class="btn" data-close-btn>Закрыть</button></div>
   </div></div>`);
 }
 function cartDrawer() {
-  const items = S.cart.map(i => SHOP[i]), total = items.reduce((s, x) => s + shopPrice(x), 0), ok = S.balance >= total;
+  const items = S.cart.map(i => SHOP[i]), total = items.reduce((s, x) => s + shopPrice(x), 0), ok = balK() >= total * 100;
   openLayer(`<div class="drawer-bg" data-close><div class="drawer" role="dialog" aria-modal="true" aria-label="Корзина">
     <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="font-family:var(--f-display);font-size:18px">Корзина</h2><button class="icon-btn" data-close-btn aria-label="Закрыть">${ICON.close}</button></div>
     ${items.length ? items.map(x => `<div class="cart-row">${tile(x)}<div style="min-width:0"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</div><div class="muted num" style="font-size:13px">${money(shopPrice(x))}</div></div><button class="btn sm" data-cartrm="${x.id}">Убрать</button></div>`).join('')
       : `<div class="empty">В корзине пусто. Добавьте игры в разделе «Магазин игр».</div>`}
-    ${items.length ? `<div class="kv"><span class="muted">Итого</span><b style="font-size:18px">${money(total)}</b></div><div class="kv"><span class="muted">Баланс</span><b style="color:${ok ? 'var(--good)' : 'var(--bad)'}">${money(S.balance)}</b></div>
-      <p class="muted" style="margin:0;font-size:13px">Демо-режим: списывается виртуальный баланс.</p>
-      <button class="btn primary" data-checkout ${ok ? '' : 'disabled'}>Оформить заказ</button>${ok ? '' : '<button class="btn" data-topup>Пополнить на 1 000 ₽ (демо)</button>'}` : ''}
+    ${items.length ? `<div class="kv"><span class="muted">Итого</span><b style="font-size:18px">${money(total)}</b></div><div class="kv"><span class="muted">Баланс</span><b style="color:${ok ? 'var(--good)' : 'var(--bad)'}">${ME ? moneyK(balK()) : 'нужен вход'}</b></div>
+      <p class="muted" style="margin:0;font-size:13px">Списывается виртуальный баланс. Ключ в демо-версии не выдаётся.</p>
+      <button class="btn primary" data-checkout ${ok || !ME ? '' : 'disabled'}>Оформить заказ</button>${ok || !ME ? '' : `<button class="btn" data-topup="${total * 100 - balK()}">Пополнить баланс</button>`}` : ''}
   </div></div>`);
 }
 
 /* ===== Профиль ===== */
 const COUNTRIES = ['Россия', 'Беларусь', 'Казахстан', 'Украина', 'Армения', 'Грузия', 'Другая'];
+const fdate = t => new Date(t).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+const moneyK = k => money(k / 100);
+const ST = { paid: ['Ждёт выдачи', 'wait'], delivered: ['Выдан', 'wait'], completed: ['Завершён', ''], canceled: ['Отменён', 'bad'] };
+const LEDGER = { topup: 'Пополнение', fee: 'Комиссия', buy: 'Покупка', sale: 'Продажа', refund: 'Возврат', shop: 'Магазин игр' };
 function viewProfile() {
   if (!ME) {
-    view().innerHTML = `<div class="empty"><h2 style="font-family:var(--f-display);font-size:20px;color:var(--fg);margin-bottom:8px">Профиль доступен после входа</h2><p style="margin:0 0 16px">Войдите или зарегистрируйтесь, чтобы покупать, видеть историю заказов и сохранять избранное.</p><button class="btn primary" data-act="auth">Войти или зарегистрироваться</button></div>`;
+    view().innerHTML = `<div class="empty"><h2 style="font-family:var(--f-display);font-size:20px;color:var(--fg);margin-bottom:8px">Профиль доступен после входа</h2><p style="margin:0 0 16px">Войдите или зарегистрируйтесь, чтобы покупать, продавать и видеть историю заказов.</p><button class="btn primary" data-act="auth">Войти или зарегистрироваться</button></div>`;
     return;
   }
+  if (!MY.loaded && !MY.loading) {
+    MY.loading = true;
+    Promise.all([loadMy(), refreshMe()]).finally(() => { MY.loading = false; MY.loaded = true; if (R.route === 'profile') viewProfile(); });
+  }
   const p = S.profile, favs = S.favs.map(i => GAMES[i]).filter(Boolean);
-  const tabs = [['buys', 'Покупки'], ['favs', 'Избранное'], ['sales', 'Продажи']];
+  const todo = MY.sales.filter(o => o.status === 'paid').length;
+  const tabs = [['buys', 'Покупки'], ['sales', 'Продажи' + (todo ? ' · ' + todo : '')], ['offers', 'Мои объявления'], ['wallet', 'Баланс'], ['favs', 'Избранное']];
+  if (!tabs.some(t => t[0] === R.ptab)) R.ptab = 'buys';
   let body;
-  if (R.ptab === 'buys') body = S.purchases.length ? `<div class="hist">${S.purchases.slice(0, 30).map(x => `<div class="row"><div class="l"><span class="tile" style="background:${artBg(x.t)}">${esc(mono(x.t))}</span><div><div class="t" style="overflow-wrap:anywhere">${esc(x.t)}</div><div class="d">${esc(x.d)} · ${x.k === 'shop' ? 'Магазин игр' : 'Маркетплейс'}</div></div></div><div style="text-align:right"><div class="num" style="font-weight:700">${money(x.p)}</div><span class="status">Демо</span></div></div>`).join('')}</div>` : `<div class="empty">Покупок пока нет. Откройте игру и нажмите «Купить».</div>`;
-  else if (R.ptab === 'favs') body = favs.length ? `<div class="game-grid">${favs.map(gameBtn).join('')}</div>` : `<div class="empty">Избранных игр нет. Откройте игру и нажмите «В избранное».</div>`;
-  else body = p.seller ? `<div class="empty">Режим продавца включён. Создание лотов появится на следующем шаге разработки.<br><button class="btn sm" data-seller style="margin-top:12px">Выключить режим продавца</button></div>` : `<div class="empty">Вы не продаёте на Lootly.<br><button class="btn primary sm" data-seller style="margin-top:12px">Стать продавцом</button></div>`;
+  if (!MY.loaded) body = `<div class="empty">Загружаем…</div>`;
+  else if (R.ptab === 'buys') body = MY.buys.length ? MY.buys.map(buyRow).join('') : `<div class="empty">Покупок пока нет. Откройте игру или приложение и нажмите «Купить».</div>`;
+  else if (R.ptab === 'sales') body = MY.sales.length ? MY.sales.map(saleRow).join('') : `<div class="empty">Продаж пока нет. Когда кто-то купит ваше объявление, заказ появится здесь.</div>`;
+  else if (R.ptab === 'offers') body = `<div style="margin-bottom:10px"><button class="btn primary sm" data-sell="">+ Создать объявление</button></div>` + (MY.offers.length ? MY.offers.map(offerRow).join('') : `<div class="empty">У вас пока нет объявлений.</div>`);
+  else if (R.ptab === 'wallet') body = walletBody();
+  else body = favs.length ? `<div class="game-grid">${favs.map(gameBtn).join('')}</div>` : `<div class="empty">Избранных игр нет. Откройте игру и нажмите «В избранное».</div>`;
   view().innerHTML = `
-    <div class="card profile-top"><span class="avatar lg" style="background:${AV[p.color % AV.length]}">${esc((p.name || 'И')[0].toUpperCase())}</span>
-      <div style="flex:1 1 220px;min-width:0"><h1>${esc(p.name || 'Игрок')}</h1><div class="muted" style="font-size:14px">${esc(p.country)} · ${esc(ME.email)} · ${p.seller ? 'Продавец' : 'Покупатель'}</div>${p.bio ? `<p style="margin:8px 0 0;overflow-wrap:anywhere">${esc(p.bio)}</p>` : ''}</div>
-      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start"><div class="muted" style="font-size:13px">Баланс</div><div class="price num">${money(S.balance)}</div><button class="btn sm" data-topup>Пополнить на 1 000 ₽ (демо)</button></div></div>
+    <div class="card profile-top">${avatar(ME, 'lg', p.color)}
+      <div style="flex:1 1 220px;min-width:0"><h1>${esc(ME.name)}</h1><div class="muted" style="font-size:14px;overflow-wrap:anywhere">${esc(ME.email)}${ME.owner ? ' · <b style="color:var(--good)">Владелец</b>' : ''}</div>${p.bio ? `<p style="margin:8px 0 0;overflow-wrap:anywhere">${esc(p.bio)}</p>` : ''}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><label class="btn sm" style="cursor:pointer">Загрузить фото<input id="av-file" type="file" accept="image/jpeg,image/png,image/webp" hidden></label>${ME.av ? '<button class="btn sm" data-avdel>Убрать фото</button>' : ''}</div></div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start"><div class="muted" style="font-size:13px">Баланс</div><div class="price num">${moneyK(balK())}</div><button class="btn sm" data-topup>Пополнить</button></div></div>
     <div class="two"><div class="card" style="min-width:0"><div class="sub-tabs">${tabs.map(([k, l]) => `<button class="chip" data-ptab="${k}" aria-pressed="${R.ptab === k}">${l}</button>`).join('')}</div>${body}</div>
       <div class="card form" style="align-self:start"><h2 style="font-family:var(--f-display);font-size:17px;font-weight:700">Данные профиля</h2>
-        <label>Никнейм<input id="pf-name" maxlength="24" value="${esc(p.name)}" disabled></label>
+        <label>Никнейм<input id="pf-name" maxlength="24" value="${esc(ME.name)}" disabled></label>
         <label>О себе<textarea id="pf-bio" maxlength="160" placeholder="Коротко о себе или о том, что вы продаёте">${esc(p.bio)}</textarea></label>
         <label>Страна<select id="pf-country">${COUNTRIES.map(c => `<option ${c === p.country ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
-        <div><div style="font-weight:600;font-size:14px;margin-bottom:8px">Цвет аватара</div><div class="swatches">${AV.map((a, i) => `<button class="sw" data-sw="${i}" style="background:${a}" aria-pressed="${p.color === i}" aria-label="Цвет ${i + 1}"></button>`).join('')}</div></div>
-        <button class="btn primary" data-saveprof>Сохранить</button></div></div>`;
+        <div><div style="font-weight:600;font-size:14px;margin-bottom:8px">Цвет, если нет фото</div><div class="swatches">${AV.map((a, i) => `<button class="sw" data-sw="${i}" style="background:${a}" aria-pressed="${p.color === i}" aria-label="Цвет ${i + 1}"></button>`).join('')}</div></div>
+        <button class="btn primary" data-saveprof>Сохранить</button><div class="hint">«О себе», страна и цвет хранятся только на этом устройстве.</div></div></div>`;
 }
+function orderHead(o, who) {
+  const st = ST[o.status] || [o.status, ''], g = o.gid >= 0 ? GAMES[o.gid] : null;
+  return `<div class="top"><div><div class="t" style="font-weight:600;overflow-wrap:anywhere">${esc(o.title)}</div><div class="muted" style="font-size:13px">${fdate(o.createdAt)} · ${g ? esc(g.name) + ' · ' : ''}${who}</div></div>
+    <div style="text-align:right;flex:none"><div class="num" style="font-weight:700">${moneyK(o.price)}</div><span class="status ${st[1]}">${st[0]}</span></div></div>`;
+}
+function secretBox(t) { return `<div class="secret"><code>${esc(t)}</code><button class="btn sm" data-copy="${esc(t)}">Копировать</button></div>`; }
+function buyRow(o) {
+  const who = o.kind === 'shop' ? 'Магазин игр' : 'Продавец ' + esc(o.seller.name);
+  return `<div class="ord">${orderHead(o, who)}
+    ${o.secret ? secretBox(o.secret) : ''}${o.msg ? secretBox(o.msg) : ''}${o.note ? `<div class="muted" style="font-size:13px">${esc(o.note)}</div>` : ''}
+    ${o.status === 'paid' ? `<div class="muted" style="font-size:13px">Продавец ещё не выдал товар. Если он молчит, можно отменить заказ и вернуть деньги.</div>` : ''}
+    ${o.status === 'delivered' ? `<div class="muted" style="font-size:13px">Проверьте данные и подтвердите получение. Если не подтвердить, деньги уйдут продавцу сами через 72 часа после выдачи.</div>` : ''}
+    <div class="btns">${o.status === 'delivered' ? `<button class="btn primary sm" data-oconfirm="${esc(o.id)}">Подтвердить получение</button>` : ''}${o.status === 'paid' ? `<button class="btn sm danger" data-ocancel="${esc(o.id)}">Отменить заказ</button>` : ''}</div></div>`;
+}
+function saleRow(o) {
+  return `<div class="ord">${orderHead(o, 'Покупатель ' + esc(o.buyer.name))}
+    ${o.status === 'paid' ? `<textarea id="dl-${esc(o.id)}" maxlength="1000" placeholder="Данные для покупателя: логин и пароль, код, инструкция…"></textarea>
+      <div class="btns"><button class="btn primary sm" data-odeliver="${esc(o.id)}">Выдать товар</button><button class="btn sm danger" data-ocancel="${esc(o.id)}">Отменить и вернуть деньги</button></div>` : ''}
+    ${o.msg ? secretBox(o.msg) : ''}
+    ${o.status === 'delivered' ? `<div class="muted" style="font-size:13px">Выдано. Деньги придут, когда покупатель подтвердит получение (или автоматически через 72 часа).</div>` : ''}
+    ${o.status === 'completed' ? `<div class="muted" style="font-size:13px">Деньги зачислены на ваш баланс.</div>` : ''}</div>`;
+}
+function offerRow(o) {
+  const g = GAMES[o.gid], st = o.status === 'active' ? (o.stock > 0 ? ['В продаже', ''] : ['Нет в наличии', 'wait']) : ['Скрыто', 'wait'];
+  return `<div class="ord"><div class="top"><div><div class="t" style="font-weight:600;overflow-wrap:anywhere">${esc(o.title)}</div><div class="muted" style="font-size:13px">${g ? esc(g.name) + ' · ' + esc(catLabel(g, o.cat)) : ''} · ${esc(o.delivery)} · в наличии ${o.stock} · продано ${o.sold}</div></div>
+    <div style="text-align:right;flex:none"><div class="num" style="font-weight:700">${moneyK(o.price)}</div><span class="status ${st[1]}">${st[0]}</span></div></div>
+    <div class="btns"><button class="btn sm" data-oedit="${esc(o.id)}">Изменить</button><button class="btn sm" data-ost="${esc(o.id)}:${o.status === 'active' ? 'paused' : 'active'}">${o.status === 'active' ? 'Скрыть' : 'Показать'}</button><button class="btn sm danger" data-ost="${esc(o.id)}:deleted">Удалить</button></div></div>`;
+}
+function walletBody() {
+  const w = MY.wallet; if (!w) return `<div class="empty">Не удалось загрузить баланс.</div>`;
+  const st = w.stats ? `<div class="stats"><div><b>${w.stats.users}</b><span>пользователей</span></div><div><b>${w.stats.offers}</b><span>объявлений</span></div><div><b>${w.stats.orders}</b><span>заказов</span></div><div><b>${moneyK(w.stats.feesTotal)}</b><span>комиссий с пополнений</span></div><div><b>${moneyK(w.stats.shopTotal)}</b><span>продаж магазина игр</span></div>${w.stats.isTreasury ? '' : '<div><b>не здесь</b><span>доходы идут на другой счёт владельца</span></div>'}</div>` : '';
+  return st + `<div class="hist">${w.ledger.length ? w.ledger.map(e => `<div class="row"><div style="min-width:0"><div class="t" style="overflow-wrap:anywhere">${esc(e.note || LEDGER[e.type] || e.type)}</div><div class="d">${fdate(e.at)} · ${LEDGER[e.type] || e.type}</div></div><div style="text-align:right;flex:none"><div class="num ${e.amt >= 0 ? 'pos' : 'neg'}" style="font-weight:700">${e.amt >= 0 ? '+' : '−'}${moneyK(Math.abs(e.amt))}</div><div class="d num">на счёте ${moneyK(e.bal)}</div></div></div>`).join('') : '<div class="empty">Операций пока нет.</div>'}</div>`;
+}
+
+/* ===== Данные аккаунта с сервера ===== */
+async function call(path, body) {
+  const r = await apiAuth(path, body);
+  if (r.status === 401 && r.data.error === 'login_required') { ME = null; closeLayer(); render(); openAuth('login', 'Сессия закончилась. Войдите снова.'); }
+  return r;
+}
+async function loadMy() {
+  if (!ME) return;
+  try {
+    const [w, o, od] = await Promise.all([call('/api/me/wallet'), call('/api/me/offers'), call('/api/me/orders')]);
+    if (w.ok) MY.wallet = w.data;
+    if (o.ok) MY.offers = o.data.offers;
+    if (od.ok) { MY.buys = od.data.buys; MY.sales = od.data.sales; }
+  } catch (e) {}
+}
+async function refreshMe() {
+  try {
+    const r = await fetch('/api/auth/me'); if (!r.ok) return;
+    const j = await r.json(); if (j.user) { ME = j.user; } else if (ME) { ME = null; render(); return; }
+    renderHeader();
+  } catch (e) {}
+}
+async function orderAction(path, body, okMsg) {
+  try {
+    const r = await call(path, body);
+    if (!r.ok) { toast(r.data.message || 'Не получилось. Попробуйте ещё раз.'); return; }
+    toast(okMsg);
+    await Promise.all([loadMy(), refreshMe()]);
+    loadSummary();
+    if (R.route === 'profile') viewProfile();
+  } catch (e) { toast('Нет связи с сервером.'); }
+}
+async function offerAction(path, body, okMsg) {
+  try {
+    const r = await call(path, body);
+    if (!r.ok) { toast(r.data.message || 'Не получилось. Попробуйте ещё раз.'); return; }
+    toast(okMsg);
+    OFF.clear(); loadSummary();
+    await loadMy();
+    if (R.route === 'profile') viewProfile();
+  } catch (e) { toast('Нет связи с сервером.'); }
+}
+
+/* ===== Покупка ===== */
+async function payOffer(id, btn) {
+  const err = $('#buy-err'); if (err) err.hidden = true;
+  btn.disabled = true;
+  const o = getOffer(id);
+  try {
+    const r = await call('/api/orders/buy', { offerId: id });
+    if (r.ok) {
+      ME.balance = r.data.balance; MY.loaded = false;
+      if (o) OFF.delete(o.gid + ':' + o.cat);
+      loadSummary().then(() => { if (R.route === 'game') { renderCats(); refreshOffers(); } });
+      renderHeader(); orderDoneModal(r.data.order); return;
+    }
+    if (err) { err.textContent = r.data.message || 'Не получилось оплатить.'; err.hidden = false; }
+    if (r.data.error === 'gone' && o) { OFF.delete(o.gid + ':' + o.cat); loadSummary(); if (R.route === 'game') refreshOffers(); }
+    if (r.data.error === 'no_funds') { await refreshMe(); }
+  } catch (e) { if (err) { err.textContent = 'Нет связи с сервером.'; err.hidden = false; } }
+  btn.disabled = false;
+}
+async function checkout() {
+  if (!ME) { openAuth('login', 'Войдите или зарегистрируйтесь, чтобы оформить заказ.'); return; }
+  try {
+    const r = await call('/api/shop/checkout', { ids: S.cart });
+    if (!r.ok) { toast(r.data.message || 'Не получилось оформить заказ.'); return; }
+    ME.balance = r.data.balance; S.cart = []; save(); MY.loaded = false; closeLayer(); render(); toast('Заказ оформлен. Он в профиле, в разделе «Покупки».');
+  } catch (e) { toast('Нет связи с сервером.'); }
+}
+
+/* ===== Пополнение баланса (демо) ===== */
+const TU = { amount: '', fee: 100 };
+function parseRub(v) { const n = parseFloat(String(v).replace(/\s/g, '').replace(',', '.')); return Number.isFinite(n) ? Math.round(n * 100) : NaN; }
+async function topupModal(needK) {
+  if (!ME) { openAuth('login', 'Войдите или зарегистрируйтесь, чтобы пополнить баланс.'); return; }
+  try { const r = await call('/api/me/wallet'); if (r.ok) { MY.wallet = r.data; TU.fee = r.data.fee; } } catch (e) {}
+  const need = needK > 0 ? Math.max(10, Math.ceil((needK + TU.fee) / 100)) : 100;
+  TU.amount = String(need);
+  openLayer(`<div class="modal-bg" data-close><div class="modal" role="dialog" aria-modal="true" aria-label="Пополнение баланса">
+    <h2>Пополнение баланса</h2>
+    <div class="auth-note">Это демо: настоящие деньги не списываются, на баланс просто зачисляются виртуальные рубли.</div>
+    <form class="form" id="topupform" novalidate>
+      <label>Сумма пополнения, ₽<input id="tu-amt" inputmode="decimal" autocomplete="off" value="${esc(TU.amount)}"></label>
+      <div class="amt">${[100, 300, 500, 1000, 3000].map(v => `<button type="button" class="chip" data-preset="${v}">${v.toLocaleString('ru-RU')}</button>`).join('')}</div>
+      <div id="tu-prev" class="muted" style="font-size:14px"></div>
+      <div class="auth-err" id="tu-err" hidden></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="submit" id="tu-go">Пополнить</button><button class="btn" type="button" data-close-btn>Отмена</button></div>
+    </form></div></div>`);
+  updateTopupPreview();
+  setTimeout(() => { const i = $('#tu-amt'); if (i) { i.focus(); i.select(); } }, 30);
+}
+function updateTopupPreview() {
+  const box = $('#tu-prev'); if (!box) return;
+  const k = parseRub(TU.amount), fee = Math.min(TU.fee, Math.max(0, k - 100));
+  if (!Number.isFinite(k) || k < 1000) { box.innerHTML = 'Минимальная сумма: 10 ₽.'; return; }
+  box.innerHTML = `На баланс придёт <b style="color:var(--fg)">${moneyK(k - fee)}</b>${fee ? `. Комиссия площадки ${moneyK(fee)} уходит владельцу.` : '.'}`;
+}
+async function submitTopup() {
+  const err = $('#tu-err'), btn = $('#tu-go'), k = parseRub(TU.amount);
+  const show = m => { err.textContent = m; err.hidden = false; };
+  if (!Number.isFinite(k) || k < 1000) return show('Минимальная сумма пополнения: 10 ₽.');
+  if (k > 10000000) return show('Максимальная сумма за раз: 100 000 ₽.');
+  btn.disabled = true; err.hidden = true;
+  try {
+    const r = await call('/api/wallet/topup', { amount: (k / 100).toFixed(2) });
+    if (r.ok) { ME.balance = r.data.balance; MY.loaded = false; closeLayer(); render(); toast('Баланс пополнен на ' + moneyK(r.data.credited)); return; }
+    show(r.data.message || 'Не получилось пополнить.');
+  } catch (e) { show('Нет связи с сервером.'); }
+  btn.disabled = false;
+}
+
+/* ===== Создание и правка объявления ===== */
+let SELL = null;
+function sellInput(t) {
+  const k = t.dataset.sf;
+  if (k === 'q') {
+    SELL.q = t.value;
+    const g = GAMES.find(x => x.name === t.value);
+    if (g && g.id !== SELL.gid) { SELL.gid = g.id; SELL.cat = catsFor(g)[0]; SELL.attrs = {}; renderSellRest(); }
+    else if (!g && SELL.gid !== null) { SELL.gid = null; renderSellRest(); }
+    return;
+  }
+  SELL[k] = t.value;
+}
+function openSell(gid, cat) {
+  if (!ME) { openAuth('login', 'Войдите или зарегистрируйтесь, чтобы создать объявление.'); return; }
+  const g = gid !== '' && gid != null && GAMES[+gid] ? GAMES[+gid] : (R.route === 'game' && GAMES[R.gid] ? GAMES[R.gid] : null);
+  SELL = { gid: g ? g.id : null, cat: null, title: '', desc: '', price: '', delivery: 'Автовыдача', items: '', stock: '1', attrs: {}, q: g ? g.name : '', busy: false };
+  if (g) SELL.cat = cat && catsFor(g).includes(cat) ? cat : (catsFor(g).includes(R.cat) && R.route === 'game' ? R.cat : catsFor(g)[0]);
+  openLayer(`<div class="modal-bg" data-close><div class="modal wide" role="dialog" aria-modal="true" aria-label="Новое объявление">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h2>Новое объявление</h2><button class="icon-btn" data-close-btn aria-label="Закрыть">${ICON.close}</button></div>
+    <form class="form" id="sellform" novalidate>
+      <label>Игра или приложение<input id="sl-game" data-sf="q" list="sl-games" autocomplete="off" placeholder="Начните вводить название" value="${esc(SELL.q)}"></label>
+      <datalist id="sl-games">${GAMES.map(x => `<option value="${esc(x.name)}"></option>`).join('')}</datalist>
+      <div id="sl-rest"></div>
+      <div class="auth-err" id="sl-err" hidden></div>
+      <button class="btn primary" type="submit" id="sl-go">Опубликовать</button>
+    </form></div></div>`);
+  renderSellRest();
+  setTimeout(() => { const i = $(SELL.gid === null ? '#sl-game' : '#sl-title'); if (i) i.focus(); }, 30);
+}
+function renderSellRest() {
+  const box = $('#sl-rest'); if (!box) return;
+  if (SELL.gid === null) { box.innerHTML = `<p class="muted" style="margin:0">Выберите игру или приложение из списка. Если нужной нет, начните вводить название ещё раз.</p>`; return; }
+  const g = GAMES[SELL.gid], A = SELL.attrs;
+  const fs = filtersFor(g, SELL.cat).filter(f => f.id !== 'delivery');
+  const auto = SELL.delivery === 'Автовыдача';
+  box.innerHTML = `<div class="form">
+    <label>Раздел<select id="sl-cat">${catsFor(g).map(c => `<option value="${c}" ${c === SELL.cat ? 'selected' : ''}>${esc(catLabel(g, c))}</option>`).join('')}</select></label>
+    <label>Название объявления<input id="sl-title" data-sf="title" maxlength="120" placeholder="Например: 1000 Robux на ваш аккаунт" value="${esc(SELL.title)}"></label>
+    <label>Описание<textarea data-sf="desc" maxlength="1000" placeholder="Что именно вы продаёте, как проходит передача, сколько ждать">${esc(SELL.desc)}</textarea></label>
+    <label>Цена за единицу, ₽<input data-sf="price" inputmode="decimal" autocomplete="off" placeholder="Например: 450" value="${esc(SELL.price)}"></label>
+    <div><div style="font-weight:600;font-size:14px;margin-bottom:8px">Как выдавать товар</div><div class="chips"><button type="button" class="chip" data-sdel="Автовыдача" aria-pressed="${auto}">Автовыдача</button><button type="button" class="chip" data-sdel="Вручную" aria-pressed="${!auto}">Вручную</button></div></div>
+    ${auto ? `<label>Данные для покупателей<textarea data-sf="items" style="min-height:110px" placeholder="Одна позиция на строку: ключ, код или логин:пароль">${esc(SELL.items)}</textarea><span class="hint">Покупатель получает одну позицию сразу после оплаты. Сколько строк, столько штук в наличии.</span></label>`
+      : `<label>Количество в наличии<input data-sf="stock" type="number" min="1" max="9999" inputmode="numeric" value="${esc(SELL.stock)}"><span class="hint">После оплаты вы сами выдаёте товар в профиле, в разделе «Продажи».</span></label>`}
+    ${fs.length ? `<div><div style="font-weight:600;font-size:14px;margin-bottom:8px">Характеристики (по ним покупатели фильтруют)</div><div class="grid2">${fs.map(f => f.type === 'chips'
+      ? `<label>${esc(f.label)}<select data-sa="${f.id}"><option value="">Не указано</option>${f.opts.map(o => `<option ${A[f.id] === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></label>`
+      : `<label style="flex-direction:row;align-items:center;gap:8px;font-weight:500"><input type="checkbox" data-sac="${f.id}" ${A[f.id] ? 'checked' : ''}> ${esc(f.label)}</label>`).join('')}</div></div>` : ''}
+  </div>`;
+}
+async function submitSell() {
+  const err = $('#sl-err'), btn = $('#sl-go'), show = m => { err.textContent = m; err.hidden = false; };
+  if (SELL.gid === null) return show('Выберите игру или приложение из списка.');
+  if (SELL.title.trim().length < 5) return show('Название: от 5 символов.');
+  const k = parseRub(SELL.price); if (!Number.isFinite(k) || k < 100) return show('Укажите цену: от 1 ₽.');
+  const auto = SELL.delivery === 'Автовыдача';
+  if (auto && !SELL.items.trim()) return show('Для автовыдачи впишите данные для покупателей: одна позиция на строку.');
+  btn.disabled = true; err.hidden = true;
+  try {
+    const r = await call('/api/market/offers', { gid: SELL.gid, cat: SELL.cat, title: SELL.title, desc: SELL.desc, price: (k / 100).toFixed(2), delivery: SELL.delivery, items: SELL.items, stock: SELL.stock, attrs: SELL.attrs });
+    if (r.ok) {
+      const gid = SELL.gid, cat = SELL.cat;
+      closeLayer(); OFF.clear(); MY.loaded = false; await loadSummary();
+      go('g-' + gid); R.cat = cat; viewGame(); toast('Объявление опубликовано'); return;
+    }
+    show(r.data.message || 'Не получилось опубликовать.');
+  } catch (e) { show('Нет связи с сервером.'); }
+  btn.disabled = false;
+}
+let EDIT = null;
+function editOffer(id) {
+  const o = MY.offers.find(x => x.id === id); if (!o) return;
+  EDIT = { id, auto: o.delivery === 'Автовыдача' };
+  openLayer(`<div class="modal-bg" data-close><div class="modal wide" role="dialog" aria-modal="true" aria-label="Изменить объявление">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><h2>Изменить объявление</h2><button class="icon-btn" data-close-btn aria-label="Закрыть">${ICON.close}</button></div>
+    <form class="form" id="editform" novalidate>
+      <label>Название<input id="ed-title" maxlength="120" value="${esc(o.title)}"></label>
+      <label>Описание<textarea id="ed-desc" maxlength="1000">${esc(o.desc || '')}</textarea></label>
+      <label>Цена, ₽<input id="ed-price" inputmode="decimal" value="${(o.price / 100).toString().replace('.', ',')}"></label>
+      ${EDIT.auto ? `<label>Добавить позиции (по одной в строке)<textarea id="ed-add" style="min-height:90px" placeholder="Сейчас в наличии: ${o.stock}"></textarea></label>` : `<label>Количество в наличии<input id="ed-stock" type="number" min="0" max="9999" value="${o.stock}"></label>`}
+      <div class="auth-err" id="ed-err" hidden></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="submit" id="ed-go">Сохранить</button><button class="btn" type="button" data-close-btn>Отмена</button></div>
+    </form></div></div>`);
+}
+async function submitEdit() {
+  const err = $('#ed-err'), btn = $('#ed-go'), show = m => { err.textContent = m; err.hidden = false; };
+  const k = parseRub($('#ed-price').value); if (!Number.isFinite(k) || k < 100) return show('Укажите цену: от 1 ₽.');
+  const body = { id: EDIT.id, title: $('#ed-title').value, desc: $('#ed-desc').value, price: (k / 100).toFixed(2) };
+  if (EDIT.auto) { const a = $('#ed-add').value.trim(); if (a) body.addItems = a; } else body.stock = $('#ed-stock').value;
+  btn.disabled = true; err.hidden = true;
+  try {
+    const r = await call('/api/market/offers/edit', body);
+    if (r.ok) { closeLayer(); OFF.clear(); loadSummary(); await loadMy(); toast('Сохранено'); if (R.route === 'profile') viewProfile(); return; }
+    show(r.data.message || 'Не получилось сохранить.');
+  } catch (e) { show('Нет связи с сервером.'); }
+  btn.disabled = false;
+}
+
+/* ===== Аватар ===== */
+async function setAvatar(file) {
+  try {
+    let image = null;
+    if (file) {
+      if (!/^image\//.test(file.type)) { toast('Нужна картинка: JPEG, PNG или WebP'); return; }
+      const url = URL.createObjectURL(file), img = new Image();
+      img.src = url; await img.decode(); URL.revokeObjectURL(url);
+      const side = Math.min(img.naturalWidth, img.naturalHeight), sx = (img.naturalWidth - side) / 2, sy = (img.naturalHeight - side) / 2;
+      for (const size of [192, 128, 96]) {
+        const c = document.createElement('canvas'); c.width = c.height = size;
+        const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, size, size); x.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+        for (const q of [0.9, 0.75, 0.6]) { image = c.toDataURL('image/jpeg', q); if (image.length * 0.75 < 55000) break; }
+        if (image.length * 0.75 < 55000) break;
+      }
+    }
+    const r = await call('/api/me/avatar', { image });
+    if (!r.ok) { toast(r.data.message || 'Не получилось загрузить фото.'); return; }
+    ME = r.data.user; render(); toast(file ? 'Фото обновлено' : 'Фото убрано');
+  } catch (e) { toast('Не удалось обработать картинку. Попробуйте другую.'); }
+}
+
+/* ===== Промокод владельца ===== */
+async function applyPromo() {
+  const i = $('#promo-code'), code = i ? i.value.trim() : '', box = $('#promo-msg');
+  const say = (m, bad) => { if (box) { box.textContent = m; box.style.color = bad ? 'var(--bad)' : 'var(--good)'; } };
+  if (!code) return say('Введите промокод.', true);
+  try {
+    const r = await call('/api/wallet/promo', { code });
+    if (r.ok) { ME = r.data.user; MY.loaded = false; render(); toast(r.data.message); return; }
+    say(r.data.message || 'Не получилось.', true);
+  } catch (e) { say('Нет связи с сервером.', true); }
+}
+async function ownerOff() {
+  try { const r = await call('/api/me/owner-off', {}); if (r.ok) { ME = r.data.user; MY.loaded = false; render(); toast('Вы больше не владелец'); } } catch (e) { toast('Нет связи с сервером.'); }
+}
+function promoCard() {
+  const h = '<h2 style="font-family:var(--f-display);font-size:16px;margin-bottom:6px">Промокод</h2>';
+  if (!ME) return `<div class="card">${h}<div class="row"><div><div class="t">Нужен вход</div><div class="d">Промокоды вводятся в аккаунте</div></div><button class="btn primary sm" data-act="auth">Войти</button></div></div>`;
+  if (ME.owner) return `<div class="card">${h}<div class="row"><div><div class="t" style="color:var(--good)">Вы владелец площадки</div><div class="d">Комиссии с пополнений приходят на ваш баланс. Данные по площадке смотрите в профиле, во вкладке «Баланс».</div></div><button class="btn sm danger" data-ownoff>Снять статус</button></div></div>`;
+  return `<div class="card">${h}<form class="form" id="promoform" novalidate><div class="d muted" style="font-size:13px">Есть код? Введите его, чтобы получить особый статус.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="promo-code" autocomplete="off" placeholder="Промокод" style="flex:1 1 180px;min-width:0"><button class="btn primary" type="submit">Применить</button></div><div id="promo-msg" style="font-size:14px;font-weight:600"></div></form></div>`;
+}
+
 function readProfileForm() {
   const n = $('#pf-name'); if (!n) return;
   S.profile.name = n.value.trim() || 'Игрок'; S.profile.bio = $('#pf-bio').value.trim(); S.profile.country = $('#pf-country').value;
@@ -1364,10 +1734,9 @@ function viewSettings() {
     <div class="card"><h2 style="font-family:var(--f-display);font-size:16px;margin-bottom:6px">Безопасность и приватность</h2>
       ${tgl('twofa', S.twofa, 'Двухфакторная защита', 'Код при входе с нового устройства')}${tgl('showOnline', S.showOnline, 'Показывать статус «онлайн»', 'Видят покупатели и продавцы')}
       <div class="row"><div><div class="t">Пароль на вход в сайт</div><div class="d">Закрыть сайт на этом устройстве, снова потребуется пароль</div></div><button class="btn sm" data-act="logoutall">Закрыть сайт</button></div></div>
-    <div class="card"><h2 style="font-family:var(--f-display);font-size:16px;margin-bottom:6px">Платежи</h2>
-      <div class="row"><div><div class="t">Способ вывода средств</div><div class="d">Для продавцов</div></div><select class="sel" id="set-payout">${[['card', 'Банковская карта'], ['sbp', 'СБП'], ['wallet', 'Электронный кошелёк']].map(([k, l]) => `<option value="${k}" ${S.payout === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
-    <div class="card"><h2 style="font-family:var(--f-display);font-size:16px;margin-bottom:6px">Данные демо</h2>
-      <div class="row"><div><div class="t">Сбросить всё</div><div class="d">Очистит профиль, избранное, корзину и покупки на этом устройстве</div></div><button class="btn sm danger" data-reset>Сбросить</button></div></div>
+    ${promoCard()}
+    <div class="card"><h2 style="font-family:var(--f-display);font-size:16px;margin-bottom:6px">Это устройство</h2>
+      <div class="row"><div><div class="t">Сбросить настройки</div><div class="d">Очистит избранное, корзину и тему только на этом устройстве. Аккаунт, баланс и заказы останутся.</div></div><button class="btn sm danger" data-reset>Сбросить</button></div></div>
   </div>`;
 }
 
@@ -1398,34 +1767,45 @@ function setAuthMode(m) { AUTH.mode = m; AUTH.err = ''; AUTH.note = ''; renderAu
 function focusAuth() {
   setTimeout(() => {
     const f = AUTH.form, m = AUTH.mode;
-    const el = m === 'verify' ? $('#af-code') : (m === 'register' && !f.name ? $('#af-name') : (!f.email ? $('#af-email') : $('#af-password')));
+    const el = (m === 'verify' || m === 'reset') ? $('#af-code') : m === 'forgot' ? $('#af-email') : (m === 'register' && !f.name ? $('#af-name') : (!f.email ? $('#af-email') : $('#af-password')));
     if (el) el.focus();
   }, 30);
 }
 function renderAuth() {
   const f = AUTH.form, m = AUTH.mode, v = k => esc(f[k] || '');
-  const title = m === 'verify' ? 'Подтвердите почту' : (m === 'register' ? 'Создать аккаунт' : 'Вход в аккаунт');
+  const title = m === 'verify' ? 'Подтвердите почту' : m === 'forgot' ? 'Восстановление пароля' : m === 'reset' ? 'Новый пароль' : (m === 'register' ? 'Создать аккаунт' : 'Вход в аккаунт');
+  const noTabs = m === 'verify' || m === 'forgot' || m === 'reset';
   let fields;
   if (m === 'verify') {
     fields = `<p class="muted" style="margin:0">Мы отправили 6-значный код на <b style="color:var(--fg);overflow-wrap:anywhere">${esc(f.email)}</b>. Код действует 10 минут.</p>
       ${AUTH_MAIL === 'dev' ? '<div class="auth-note">Почта пока не подключена, письмо не придёт. Код смотрите в журнале сервиса на Render (вкладка Logs).</div>' : ''}
       <label>Код из письма<input class="code-input" id="af-code" data-af="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" value="${v('code')}"></label>`;
+  } else if (m === 'forgot') {
+    fields = `<p class="muted" style="margin:0">Укажите почту, с которой вы регистрировались. Мы пришлём код для смены пароля.</p>
+      <label>Почта<input id="af-email" data-af="email" type="email" autocomplete="email" placeholder="you@example.com" value="${v('email')}"></label>`;
+  } else if (m === 'reset') {
+    fields = `<p class="muted" style="margin:0">Если почта <b style="color:var(--fg);overflow-wrap:anywhere">${esc(f.email)}</b> зарегистрирована, мы отправили на неё 6-значный код. Код действует 10 минут.</p>
+      ${AUTH_MAIL === 'dev' ? '<div class="auth-note">Почта пока не подключена, письмо не придёт. Код смотрите в журнале сервиса на Render (вкладка Logs).</div>' : ''}
+      <label>Код из письма<input class="code-input" id="af-code" data-af="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" value="${v('code')}"></label>
+      <label>Новый пароль<span class="pw"><input id="af-password" data-af="password" type="password" autocomplete="new-password" placeholder="От 8 символов" value="${v('password')}"><button type="button" class="linkbtn" data-auth-eye>Показать</button></span></label>`;
   } else {
     fields = (m === 'register' ? `<label>Никнейм<input id="af-name" data-af="name" maxlength="24" autocomplete="nickname" placeholder="Как вас называть" value="${v('name')}"></label>` : '')
       + `<label>Почта<input id="af-email" data-af="email" type="email" autocomplete="email" placeholder="you@example.com" value="${v('email')}"></label>
       <label>Пароль<span class="pw"><input id="af-password" data-af="password" type="password" autocomplete="${m === 'register' ? 'new-password' : 'current-password'}" placeholder="${m === 'register' ? 'От 8 символов' : 'Ваш пароль'}" value="${v('password')}"><button type="button" class="linkbtn" data-auth-eye>Показать</button></span></label>`;
   }
-  const btn = AUTH.busy ? 'Подождите…' : (m === 'verify' ? 'Подтвердить' : (m === 'register' ? 'Зарегистрироваться' : 'Войти'));
+  const btn = AUTH.busy ? 'Подождите…' : (m === 'verify' ? 'Подтвердить' : m === 'forgot' ? 'Отправить код' : m === 'reset' ? 'Сменить пароль' : (m === 'register' ? 'Зарегистрироваться' : 'Войти'));
   openLayer(`<div class="modal-bg" data-close><div class="modal" role="dialog" aria-modal="true" aria-label="${title}">
-    <div class="auth-top"><img class="auth-logo" src="/logo.png" alt="Lootly"><button class="icon-btn" data-close-btn aria-label="Закрыть">${ICON.close}</button></div>
+    <div class="auth-top"><img class="auth-logo" src="/logo.png" alt="Lutrix Game"><button class="icon-btn" data-close-btn aria-label="Закрыть">${ICON.close}</button></div>
     <h2>${title}</h2>
     ${AUTH.note ? `<div class="auth-note">${esc(AUTH.note)}</div>` : ''}
-    ${m === 'verify' ? '' : `<div class="auth-tabs" role="tablist"><button type="button" role="tab" data-auth-mode="login" aria-selected="${m === 'login'}">Вход</button><button type="button" role="tab" data-auth-mode="register" aria-selected="${m === 'register'}">Регистрация</button></div>`}
+    ${noTabs ? '' : `<div class="auth-tabs" role="tablist"><button type="button" role="tab" data-auth-mode="login" aria-selected="${m === 'login'}">Вход</button><button type="button" role="tab" data-auth-mode="register" aria-selected="${m === 'register'}">Регистрация</button></div>`}
     <form class="form" id="authform" novalidate>${fields}
       ${AUTH.err ? `<div class="auth-err" role="alert">${esc(AUTH.err)}</div>` : ''}
       <button class="btn primary" type="submit" ${AUTH.busy ? 'disabled' : ''}>${btn}</button>
     </form>
-    ${m === 'verify' ? `<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><button type="button" class="linkbtn" id="auth-resend" data-auth-resend ${AUTH.cool > 0 ? 'disabled' : ''}>${AUTH.cool > 0 ? 'Отправить ещё раз ' + fmtWait(AUTH.cool) : 'Отправить код ещё раз'}</button><button type="button" class="linkbtn" data-auth-back>Изменить почту</button></div>` : ''}
+    ${m === 'login' ? `<div style="display:flex;justify-content:center"><button type="button" class="linkbtn" data-auth-forgot>Забыли пароль?</button></div>` : ''}
+    ${m === 'forgot' ? `<div style="display:flex;justify-content:center"><button type="button" class="linkbtn" data-auth-login>Вернуться ко входу</button></div>` : ''}
+    ${m === 'verify' || m === 'reset' ? `<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><button type="button" class="linkbtn" id="auth-resend" data-auth-resend ${AUTH.cool > 0 ? 'disabled' : ''}>${AUTH.cool > 0 ? 'Отправить ещё раз ' + fmtWait(AUTH.cool) : 'Отправить код ещё раз'}</button>${m === 'verify' ? '<button type="button" class="linkbtn" data-auth-back>Изменить почту</button>' : '<button type="button" class="linkbtn" data-auth-login>Вернуться ко входу</button>'}</div>` : ''}
   </div></div>`);
 }
 function startCool(sec) {
@@ -1439,17 +1819,23 @@ function startCool(sec) {
   }, 1000);
 }
 function goVerify(note) { AUTH.mode = 'verify'; AUTH.note = note || ''; AUTH.err = ''; AUTH.form.code = ''; startCool(60); renderAuth(); focusAuth(); }
-function authDone(user) {
+function goReset() { AUTH.mode = 'reset'; AUTH.note = ''; AUTH.err = ''; AUTH.form.code = ''; AUTH.form.password = ''; startCool(60); renderAuth(); focusAuth(); }
+function authDone(user, msg) {
   ME = user; S.profile.name = user.name; save();
   AUTH.form = { name: '', email: '', password: '', code: '' }; AUTH.note = ''; AUTH.err = '';
   if (authTimer) clearInterval(authTimer);
-  closeLayer(); render(); toast('Добро пожаловать, ' + user.name);
+  closeLayer(); render(); toast(msg || ('Добро пожаловать, ' + user.name));
 }
 async function submitAuth() {
   if (AUTH.busy) return;
   const f = AUTH.form, m = AUTH.mode;
   const stop = msg => { AUTH.err = msg; renderAuth(); focusAuth(); };
   if (m === 'verify') { if (!/^\d{6}$/.test(f.code.trim())) return stop('Введите 6 цифр из письма.'); }
+  else if (m === 'forgot') { if (!EMAIL_OK.test(f.email.trim())) return stop('Проверьте адрес почты.'); }
+  else if (m === 'reset') {
+    if (!/^\d{6}$/.test(f.code.trim())) return stop('Введите 6 цифр из письма.');
+    if (f.password.length < 8) return stop('Пароль: от 8 символов.');
+  }
   else {
     if (m === 'register' && f.name.trim().length < 2) return stop('Никнейм: от 2 символов.');
     if (!EMAIL_OK.test(f.email.trim())) return stop('Проверьте адрес почты.');
@@ -1461,9 +1847,12 @@ async function submitAuth() {
     const email = f.email.trim();
     const r = m === 'register' ? await apiAuth('/api/auth/register', { name: f.name.trim(), email, password: f.password })
       : m === 'login' ? await apiAuth('/api/auth/login', { email, password: f.password })
+      : m === 'forgot' ? await apiAuth('/api/auth/forgot', { email })
+      : m === 'reset' ? await apiAuth('/api/auth/reset', { email, code: f.code.trim(), password: f.password })
       : await apiAuth('/api/auth/verify', { email, code: f.code.trim() });
     AUTH.busy = false;
-    if (r.ok && r.data.user) { authDone(r.data.user); return; }
+    if (m === 'forgot' && r.ok) { mailMode(r.data.mail); goReset(); return; }
+    if (r.ok && r.data.user) { authDone(r.data.user, m === 'reset' ? 'Пароль изменён, вы вошли в аккаунт' : undefined); return; }
     if (r.ok && r.data.step === 'verify') { mailMode(r.data.mail); goVerify(); return; }
     if (r.status === 403 && r.data.error === 'not_verified') { mailMode(r.data.mail); goVerify(r.data.message); return; }
     stop(r.data.message || 'Что-то пошло не так. Попробуйте ещё раз.');
@@ -1473,8 +1862,8 @@ async function resendCode() {
   if (AUTH.cool > 0 || AUTH.busy) return;
   AUTH.err = ''; AUTH.note = '';
   try {
-    const r = await apiAuth('/api/auth/resend', { email: AUTH.form.email.trim() });
-    if (r.ok) { mailMode(r.data.mail); AUTH.note = 'Новый код отправлен.'; startCool(60); }
+    const r = await apiAuth(AUTH.mode === 'reset' ? '/api/auth/forgot' : '/api/auth/resend', { email: AUTH.form.email.trim() });
+    if (r.ok) { mailMode(r.data.mail); AUTH.note = AUTH.mode === 'reset' ? 'Если почта зарегистрирована, новый код отправлен.' : 'Новый код отправлен.'; startCool(60); }
     else { AUTH.err = r.data.message || 'Не удалось отправить код.'; if (r.data.wait) startCool(r.data.wait); }
   } catch (e) { AUTH.err = 'Нет связи с сервером.'; }
   renderAuth();
@@ -1488,13 +1877,14 @@ async function loadMe() {
   try {
     const r = await fetch('/api/auth/me');
     if (r.status === 401) { location.reload(); return; }
+    if (!r.ok) throw new Error('auth ' + r.status);
     const j = await r.json();
     ME = j.user || null; AUTH_MAIL = j.mail === 'live' ? 'live' : 'dev'; ok = true;
     if (ME) { S.profile.name = ME.name; save(); }
   } catch (e) {}
   render();
   if (ok && !ME) {
-    try { if (!sessionStorage.getItem('lootly-auth-seen')) { sessionStorage.setItem('lootly-auth-seen', '1'); openAuth('register'); } } catch (e) {}
+    try { if (!sessionStorage.getItem('lutrix-auth-seen')) { sessionStorage.setItem('lutrix-auth-seen', '1'); openAuth('register'); } } catch (e) {}
   }
 }
 
@@ -1504,6 +1894,8 @@ document.addEventListener('click', e => {
   if (!q('.search')) { const p = $('#spop'); if (p) p.hidden = true; }
   let el;
   if ((el = q('[data-auth-mode]'))) { setAuthMode(el.dataset.authMode); focusAuth(); return; }
+  if (q('[data-auth-forgot]')) { AUTH.mode = 'forgot'; AUTH.err = ''; AUTH.note = ''; AUTH.form.password = ''; renderAuth(); focusAuth(); return; }
+  if (q('[data-auth-login]')) { if (authTimer) clearInterval(authTimer); AUTH.mode = 'login'; AUTH.err = ''; AUTH.note = ''; AUTH.form.password = ''; AUTH.form.code = ''; renderAuth(); focusAuth(); return; }
   if (q('[data-auth-resend]')) { resendCode(); return; }
   if (q('[data-auth-back]')) { if (authTimer) clearInterval(authTimer); AUTH.mode = 'register'; AUTH.err = ''; AUTH.note = ''; renderAuth(); focusAuth(); return; }
   if ((el = q('[data-auth-eye]'))) { const i = $('#af-password'); if (i) { const show = i.type === 'password'; i.type = show ? 'text' : 'password'; el.textContent = show ? 'Скрыть' : 'Показать'; } return; }
@@ -1515,11 +1907,32 @@ document.addEventListener('click', e => {
   if ((el = q('[data-f]'))) { const k = el.dataset.f, v = el.dataset.v; R.fv[k] = R.fv[k] === v ? '' : v; R.shown = 12; renderFilters(); renderOffers(); return; }
   if ((el = q('[data-fav]'))) { const id = +el.dataset.fav, i = S.favs.indexOf(id); if (i < 0) S.favs.push(id); else S.favs.splice(i, 1); save(); viewGame(); toast(i < 0 ? 'Добавлено в избранное' : 'Убрано из избранного'); return; }
   if ((el = q('[data-buy]'))) { buyModal(el.dataset.buy); return; }
-  if ((el = q('[data-pay]'))) {
-    const o = getOffer(el.dataset.pay); if (S.balance < o.price) return;
-    S.balance -= o.price; S.purchases.unshift({ t: o.title, p: o.price, d: new Date().toLocaleDateString('ru-RU'), k: 'market' }); save(); closeLayer(); renderHeader(); toast('Заказ оформлен (демо)'); return;
+  if ((el = q('[data-pay]'))) { payOffer(el.dataset.pay, el); return; }
+  if ((el = q('[data-topup]'))) { topupModal(+el.dataset.topup || 0); return; }
+  if ((el = q('[data-sell]'))) { openSell(el.dataset.sell, el.dataset.sellCat); return; }
+  if ((el = q('[data-sdel]'))) { SELL.delivery = el.dataset.sdel; renderSellRest(); return; }
+  if ((el = q('[data-copy]'))) { copyText(el.dataset.copy); return; }
+  if ((el = q('[data-go-profile]'))) { go('profile'); R.ptab = el.dataset.goProfile; viewProfile(); closeLayer(); return; }
+  if ((el = q('[data-preset]'))) { const i = $('#tu-amt'); if (i) { i.value = el.dataset.preset; TU.amount = i.value; updateTopupPreview(); } return; }
+  if ((el = q('[data-oconfirm]'))) { orderAction('/api/orders/confirm', { id: el.dataset.oconfirm }, 'Получение подтверждено, деньги ушли продавцу'); return; }
+  if ((el = q('[data-ocancel]'))) {
+    if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = 'Точно отменить?'; return; }
+    orderAction('/api/orders/cancel', { id: el.dataset.ocancel }, 'Заказ отменён, деньги вернулись покупателю'); return;
   }
-  if (q('[data-topup]')) { S.balance += 1000; save(); closeLayer(); render(); toast('Баланс пополнен на 1 000 ₽ (демо)'); return; }
+  if ((el = q('[data-odeliver]'))) {
+    const id = el.dataset.odeliver, ta = document.getElementById('dl-' + id), msg = ta ? ta.value.trim() : '';
+    if (!msg) { toast('Напишите покупателю данные или инструкцию'); return; }
+    orderAction('/api/orders/deliver', { id, message: msg }, 'Выдано, покупатель увидит сообщение'); return;
+  }
+  if ((el = q('[data-ost]'))) {
+    const [id, st] = el.dataset.ost.split(':');
+    if (st === 'deleted' && !el.dataset.sure) { el.dataset.sure = '1'; el.textContent = 'Точно удалить?'; return; }
+    offerAction('/api/market/offers/status', { id, status: st }, st === 'deleted' ? 'Объявление удалено' : (st === 'paused' ? 'Объявление скрыто' : 'Объявление снова в продаже')); return;
+  }
+  if ((el = q('[data-oedit]'))) { editOffer(el.dataset.oedit); return; }
+  if (q('[data-avdel]')) { setAvatar(null); return; }
+  if (q('[data-promo]')) { applyPromo(); return; }
+  if (q('[data-ownoff]')) { ownerOff(); return; }
   if ((el = q('[data-act]'))) {
     const a = el.dataset.act;
     if (a === 'auth') openAuth('login');
@@ -1536,11 +1949,7 @@ document.addEventListener('click', e => {
   if ((el = q('[data-shop]'))) { shopModal(+el.dataset.shop); return; }
   if ((el = q('[data-cartadd]'))) { const id = +el.dataset.cartadd; if (!S.cart.includes(id)) S.cart.push(id); save(); closeLayer(); renderHeader(); toast('Добавлено в корзину'); return; }
   if ((el = q('[data-cartrm]'))) { S.cart = S.cart.filter(i => i !== +el.dataset.cartrm); save(); renderHeader(); cartDrawer(); return; }
-  if (q('[data-checkout]')) {
-    if (!ME) { openAuth('login', 'Войдите или зарегистрируйтесь, чтобы оформить заказ.'); return; }
-    const items = S.cart.map(i => SHOP[i]), total = items.reduce((s, x) => s + shopPrice(x), 0); if (S.balance < total) return;
-    S.balance -= total; const d = new Date().toLocaleDateString('ru-RU'); items.forEach(x => S.purchases.unshift({ t: x.name, p: shopPrice(x), d, k: 'shop' })); S.cart = []; save(); closeLayer(); render(); toast('Заказ оформлен (демо)'); return;
-  }
+  if (q('[data-checkout]')) { checkout(); return; }
   if ((el = q('[data-sg]'))) { R.shopGenre = el.dataset.sg; renderShopFilters(); renderShopGrid(); return; }
   if ((el = q('[data-sp]'))) { R.shopPlat = R.shopPlat === el.dataset.sp ? '' : el.dataset.sp; renderShopFilters(); renderShopGrid(); return; }
   if ((el = q('[data-theme-set]'))) { S.theme = el.dataset.themeSet; save(); applyTheme(); viewSettings(); return; }
@@ -1550,7 +1959,6 @@ document.addEventListener('click', e => {
   if ((el = q('[data-ptab]'))) { readProfileForm(); R.ptab = el.dataset.ptab; viewProfile(); return; }
   if ((el = q('[data-sw]'))) { readProfileForm(); S.profile.color = +el.dataset.sw; save(); render(); return; }
   if (q('[data-saveprof]')) { readProfileForm(); save(); render(); toast('Профиль сохранён'); return; }
-  if (q('[data-seller]')) { S.profile.seller = !S.profile.seller; save(); viewProfile(); return; }
   if ((el = q('[data-reset]'))) {
     if (el.dataset.sure) { try { localStorage.removeItem(LS_KEY); } catch (er) {} S = JSON.parse(JSON.stringify(DEFAULTS)); applyTheme(); render(); toast('Данные сброшены'); }
     else { el.dataset.sure = '1'; el.textContent = 'Точно сбросить?'; }
@@ -1558,6 +1966,8 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('input', e => {
   const t = e.target;
+  if (t.dataset && t.dataset.sf) { sellInput(t); return; }
+  if (t.id === 'tu-amt') { TU.amount = t.value; updateTopupPreview(); return; }
   if (t.dataset && t.dataset.af) { if (t.id === 'af-code') t.value = t.value.replace(/\D/g, '').slice(0, 6); AUTH.form[t.dataset.af] = t.value; return; }
   if (t.id === 'gsearch') {
     R.q = t.value;
@@ -1574,9 +1984,18 @@ document.addEventListener('change', e => {
   else if (t.id === 'smax') { R.shopMax = t.value; renderShopGrid(); }
   else if (t.id === 'ssale') { R.shopSale = t.checked; renderShopGrid(); }
   else if (t.id === 'set-cur') { S.currency = t.value; save(); render(); toast('Валюта изменена'); }
-  else if (t.id === 'set-payout') { S.payout = t.value; save(); toast('Сохранено'); }
+  else if (t.id === 'av-file') { setAvatar(t.files && t.files[0]); t.value = ''; }
+  else if (t.id === 'sl-cat') { SELL.cat = t.value; SELL.attrs = {}; renderSellRest(); }
+  else if (t.dataset && t.dataset.sa) { if (t.value) SELL.attrs[t.dataset.sa] = t.value; else delete SELL.attrs[t.dataset.sa]; }
+  else if (t.dataset && t.dataset.sac) { if (t.checked) SELL.attrs[t.dataset.sac] = true; else delete SELL.attrs[t.dataset.sac]; }
 });
-document.addEventListener('submit', e => { if (e.target.id === 'authform') { e.preventDefault(); submitAuth(); } });
+document.addEventListener('submit', e => {
+  if (e.target.id === 'authform') { e.preventDefault(); submitAuth(); }
+  else if (e.target.id === 'sellform') { e.preventDefault(); submitSell(); }
+  else if (e.target.id === 'topupform') { e.preventDefault(); submitTopup(); }
+  else if (e.target.id === 'editform') { e.preventDefault(); submitEdit(); }
+  else if (e.target.id === 'promoform') { e.preventDefault(); applyPromo(); }
+});
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeLayer(); const p = $('#spop'); if (p) p.hidden = true; } });
 window.addEventListener('popstate', () => apply(location.hash));
 window.addEventListener('hashchange', () => apply(location.hash));
@@ -1585,6 +2004,8 @@ window.addEventListener('hashchange', () => apply(location.hash));
 applyTheme();
 apply(location.hash);
 loadMe();
+loadSummary().then(() => render());
+setInterval(() => { if (ME && !document.hidden) refreshMe(); }, 30000);
 try { fetch('covers.json').then(r => r.ok ? r.json() : {}).then(j => { if (j && Object.keys(j).length) { COVERS = j; render(); } }).catch(() => {}); } catch (e) {}
 </script>
 
