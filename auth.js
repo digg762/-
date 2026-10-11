@@ -15,6 +15,8 @@ const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim();
 const MAIL_FROM = (process.env.MAIL_FROM || 'Lutrix Game <onboarding@resend.dev>').trim();
 const RESEND_BASE = process.env.RESEND_BASE || 'https://api.resend.com';
+// MAIL_FALLBACK_TO_LOG=1: если Resend не принял письмо (например, адрес не владельца аккаунта Resend), код печатается в журнал, как без почты. Только для тестов.
+const MAIL_FALLBACK = /^(1|true|yes)$/i.test((process.env.MAIL_FALLBACK_TO_LOG || '').trim());
 
 const MIN = 60 * 1000, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const CODE_TTL = 10 * MIN;          // код живёт 10 минут
@@ -140,15 +142,21 @@ async function sendMail(kind, email, code) {
   }
   const text = `${m.title} ${code}\nОн действует 10 минут. ${m.tail}`;
   const html = `<div style="font-family:Arial,sans-serif;max-width:420px;margin:0 auto;padding:24px"><h2 style="margin:0 0 12px">Lutrix Game</h2><p>${m.title}</p><p style="font-size:32px;letter-spacing:8px;font-weight:700;margin:12px 0">${code}</p><p style="color:#666;font-size:14px">Код действует 10 минут. ${m.tail}</p></div>`;
-  const r = await fetch(RESEND_BASE + '/emails', {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: MAIL_FROM, to: [email], subject: m.subject, html, text }),
-    signal: AbortSignal.timeout(15000)
-  });
-  if (!r.ok) {
-    let t = ''; try { t = (await r.text()).slice(0, 300); } catch { /* пусто */ }
-    throw new Error('Resend ответил ' + r.status + ' ' + t);
+  let r = null, errText = '';
+  try {
+    r = await fetch(RESEND_BASE + '/emails', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: MAIL_FROM, to: [email], subject: m.subject, html, text }),
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!r.ok) { let t = ''; try { t = (await r.text()).slice(0, 300); } catch { /* пусто */ } errText = 'Resend ответил ' + r.status + ' ' + t; }
+  } catch (e) { errText = 'Resend недоступен: ' + e.message; }
+  if (errText) {
+    if (!MAIL_FALLBACK) throw new Error(errText);
+    console.error('Письмо не ушло (' + errText + '). Включён MAIL_FALLBACK_TO_LOG, код только в журнале.');
+    console.log(`[ПОЧТА НЕ ПОДКЛЮЧЕНА] ${m.dev} для ${email}: ${code}`);
+    return 'dev';
   }
   return 'sent';
 }
