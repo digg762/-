@@ -3,8 +3,10 @@
 //  - Пользователи и входы хранятся в Postgres, если задана переменная DATABASE_URL
 //    (см. store.js). Без неё: в файле data/users.json, а на бесплатном Render он
 //    стирается при каждом перезапуске.
-//  - Письма отправляет Resend, если задана переменная RESEND_API_KEY;
-//    без неё коды печатаются только в журнал (Logs) на Render.
+//  - Письма отправляет Brevo (бесплатно 300 писем в день, домен не нужен), если заданы
+//    переменные BREVO_API_KEY и MAIL_FROM_EMAIL. Запасной вариант: Resend (RESEND_API_KEY).
+//    Если не задано ничего, коды печатаются только в журнал (Logs) на Render.
+//    Важно: бесплатный Render закрывает SMTP-порты, поэтому отправка идёт по HTTPS API.
 const path = require('path');
 const crypto = require('crypto');
 const { promisify } = require('util');
@@ -12,11 +14,19 @@ const { createStore, newMem } = require('./store');
 const scrypt = promisify(crypto.scrypt);
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+// Brevo (основной сервис писем)
+const BREVO_KEY = (process.env.BREVO_API_KEY || '').trim();
+const MAIL_FROM_EMAIL = (process.env.MAIL_FROM_EMAIL || '').trim();            // подтверждённый отправитель в Brevo
+const MAIL_FROM_NAME = (process.env.MAIL_FROM_NAME || 'Lutrix Game').trim();
+const BREVO_BASE = process.env.BREVO_BASE || 'https://api.brevo.com';
+// Resend (запасной вариант, нужен только если Brevo не настроен)
 const RESEND_KEY = (process.env.RESEND_API_KEY || '').trim();
 const MAIL_FROM = (process.env.MAIL_FROM || 'Lutrix Game <onboarding@resend.dev>').trim();
 const RESEND_BASE = process.env.RESEND_BASE || 'https://api.resend.com';
-// MAIL_FALLBACK_TO_LOG=1: если Resend не принял письмо (например, адрес не владельца аккаунта Resend), код печатается в журнал, как без почты. Только для тестов.
-const MAIL_FALLBACK = /^(1|true|yes)$/i.test((process.env.MAIL_FALLBACK_TO_LOG || '').trim());
+// какой сервис реально используется
+const MAIL_PROVIDER = BREVO_KEY && MAIL_FROM_EMAIL ? 'brevo' : RESEND_KEY ? 'resend' : '';
+const MAIL_LIVE = !!MAIL_PROVIDER;
+if (BREVO_KEY && !MAIL_FROM_EMAIL) console.warn('BREVO_API_KEY задан, но не задан MAIL_FROM_EMAIL (адрес отправителя, подтверждённый в Brevo): письма не отправляются.');
 
 const MIN = 60 * 1000, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const CODE_TTL = 10 * MIN;          // код живёт 10 минут
@@ -136,27 +146,37 @@ const MAILS = {
 };
 async function sendMail(kind, email, code) {
   const m = MAILS[kind];
-  if (!RESEND_KEY) {
+  if (!MAIL_LIVE) {
     console.log(`[ПОЧТА НЕ ПОДКЛЮЧЕНА] ${m.dev} для ${email}: ${code}`);
     return 'dev';
   }
   const text = `${m.title} ${code}\nОн действует 10 минут. ${m.tail}`;
   const html = `<div style="font-family:Arial,sans-serif;max-width:420px;margin:0 auto;padding:24px"><h2 style="margin:0 0 12px">Lutrix Game</h2><p>${m.title}</p><p style="font-size:32px;letter-spacing:8px;font-weight:700;margin:12px 0">${code}</p><p style="color:#666;font-size:14px">Код действует 10 минут. ${m.tail}</p></div>`;
-  let r = null, errText = '';
-  try {
+  let r, name;
+  if (MAIL_PROVIDER === 'brevo') {
+    name = 'Brevo';
+    r = await fetch(BREVO_BASE + '/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'api-key': BREVO_KEY, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        sender: { name: MAIL_FROM_NAME, email: MAIL_FROM_EMAIL },
+        to: [{ email }],
+        subject: m.subject, htmlContent: html, textContent: text
+      }),
+      signal: AbortSignal.timeout(15000)
+    });
+  } else {
+    name = 'Resend';
     r = await fetch(RESEND_BASE + '/emails', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ from: MAIL_FROM, to: [email], subject: m.subject, html, text }),
       signal: AbortSignal.timeout(15000)
     });
-    if (!r.ok) { let t = ''; try { t = (await r.text()).slice(0, 300); } catch { /* пусто */ } errText = 'Resend ответил ' + r.status + ' ' + t; }
-  } catch (e) { errText = 'Resend недоступен: ' + e.message; }
-  if (errText) {
-    if (!MAIL_FALLBACK) throw new Error(errText);
-    console.error('Письмо не ушло (' + errText + '). Включён MAIL_FALLBACK_TO_LOG, код только в журнале.');
-    console.log(`[ПОЧТА НЕ ПОДКЛЮЧЕНА] ${m.dev} для ${email}: ${code}`);
-    return 'dev';
+  }
+  if (!r.ok) {
+    let t = ''; try { t = (await r.text()).slice(0, 300); } catch { /* пусто */ }
+    throw new Error(name + ' ответил ' + r.status + ' ' + t);
   }
   return 'sent';
 }
@@ -214,7 +234,7 @@ async function route(req, res, url, ctx) {
   if (name_ === 'me') {
     if (req.method !== 'GET') return fail(res, 405, 'method', 'Метод не поддерживается');
     const u = userFromReq(req);
-    return send(res, 200, { user: u ? pub(u) : null, mail: RESEND_KEY ? 'live' : 'dev' });
+    return send(res, 200, { user: u ? pub(u) : null, mail: MAIL_LIVE ? 'live' : 'dev' });
   }
   if (req.method !== 'POST') return fail(res, 405, 'method', 'Метод не поддерживается');
 
@@ -308,7 +328,7 @@ async function route(req, res, url, ctx) {
     ctx.bump('fg:' + ip, HOUR);
     if (email.length > 254 || !EMAIL_RE.test(email)) return fail(res, 400, 'bad_email', 'Проверьте адрес почты.');
     // ответ всегда одинаковый и сразу: так по нему не узнать, зарегистрирована ли почта
-    send(res, 200, { ok: true, mail: RESEND_KEY ? 'sent' : 'dev' });
+    send(res, 200, { ok: true, mail: MAIL_LIVE ? 'sent' : 'dev' });
     const u = byEmail.get(email);
     if (u && u.verified && canSend(u, 'reset').ok) issueCode(u, 'reset').catch(e => console.error('Письмо для сброса пароля не ушло:', e.message));
     return;
@@ -337,7 +357,7 @@ async function route(req, res, url, ctx) {
 }
 
 module.exports = {
-  handle, mode: RESEND_KEY ? 'live' : 'dev', storeNote,
+  handle, mode: MAIL_LIVE ? 'live' : 'dev', provider: MAIL_PROVIDER, storeNote,
   // внутренности для market.js
   core: { mem, store, byEmail, userFromReq, pub, isReady: () => ready, parseCookies }
 };
